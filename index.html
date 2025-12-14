@@ -1,0 +1,290 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pokemon Math Adventure</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Press+Start+2P&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Fredoka', sans-serif;
+        background-color: #202020;
+        overflow-x: hidden;
+      }
+      .font-pixel {
+        font-family: 'Press Start 2P', cursive;
+      }
+      .font-mono {
+        font-family: 'Roboto Mono', monospace;
+      }
+      
+      /* --- Animations --- */
+      
+      /* Idle Float */
+      .animate-float {
+        animation: float 3s ease-in-out infinite;
+      }
+      @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+        100% { transform: translateY(0px); }
+      }
+
+      /* Attack: Tackle Forward */
+      .animate-tackle-enemy {
+        animation: tackleEnemy 0.4s ease-in-out;
+      }
+      @keyframes tackleEnemy {
+        0% { transform: translate(0, 0); }
+        50% { transform: translate(30px, -20px) scale(1.1); }
+        100% { transform: translate(0, 0); }
+      }
+
+      .animate-tackle-player {
+        animation: tacklePlayer 0.4s ease-in-out;
+      }
+      @keyframes tacklePlayer {
+        0% { transform: scaleX(-1) translate(0, 0); }
+        50% { transform: scaleX(-1) translate(30px, 20px) scale(1.1); }
+        100% { transform: scaleX(-1) translate(0, 0); }
+      }
+
+      /* Damage Taken: Flash Red */
+      .animate-flash-red {
+        animation: flashRed 0.5s ease-in-out;
+      }
+      @keyframes flashRed {
+        0%, 100% { filter: brightness(1); opacity: 1; }
+        25% { filter: brightness(2) sepia(1) hue-rotate(-50deg) saturate(5); opacity: 0.5; }
+        50% { opacity: 0.8; }
+        75% { filter: brightness(2) sepia(1) hue-rotate(-50deg) saturate(5); opacity: 0.5; }
+      }
+
+      /* Pokeball: Throw Arc */
+      .animate-throw {
+        animation: throwBall 1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+      }
+      @keyframes throwBall {
+        0% { transform: translate(-200px, 200px) scale(0.5); opacity: 0; }
+        50% { transform: translate(-50px, -100px) scale(1.2); opacity: 1; }
+        100% { transform: translate(0, 0) scale(1); opacity: 1; }
+      }
+
+      /* Pokeball: Shake */
+      .animate-shake-ball {
+        animation: shakeBall 1.5s ease-in-out infinite;
+      }
+      @keyframes shakeBall {
+        0%, 100% { transform: rotate(0deg); }
+        25% { transform: rotate(-15deg); }
+        75% { transform: rotate(15deg); }
+      }
+
+      /* Pokeball: Success Glow */
+      .animate-glow-gold {
+        animation: glowGold 1s ease-in-out infinite alternate;
+        box-shadow: 0 0 20px #fbbf24;
+      }
+      @keyframes glowGold {
+        from { filter: drop-shadow(0 0 5px #fbbf24); }
+        to { filter: drop-shadow(0 0 20px #fbbf24); }
+      }
+
+      /* MASTER BALL: Cosmic Flash */
+      .animate-cosmic-flash {
+        animation: cosmicFlash 2s ease-out forwards;
+      }
+      @keyframes cosmicFlash {
+        0% { background-color: rgba(147, 51, 234, 0); }
+        20% { background-color: rgba(147, 51, 234, 0.8); } /* Purple Flash */
+        40% { background-color: white; } /* Bright Flash */
+        100% { background-color: rgba(0,0,0,0); }
+      }
+
+      /* MASTER BALL: Throw Trajectory (Direct & Fast) */
+      .animate-master-throw {
+        animation: masterThrow 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+      }
+      @keyframes masterThrow {
+        0% { transform: translate(-300px, 300px) scale(0.2) rotate(0deg); opacity: 0; filter: drop-shadow(0 0 10px #d8b4fe); }
+        50% { transform: translate(-150px, 0px) scale(1.5) rotate(720deg); opacity: 1; filter: drop-shadow(0 0 30px #a855f7); }
+        100% { transform: translate(0, 0) scale(1) rotate(1440deg); opacity: 1; filter: drop-shadow(0 0 50px #9333ea); }
+      }
+
+      /* UI: Pop In */
+      .pop-in {
+        animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+      @keyframes popIn {
+        0% { opacity: 0; transform: scale(0.8); }
+        100% { opacity: 1; transform: scale(1); }
+      }
+
+      /* Retro Dialog Box Pattern */
+      .retro-border {
+        border: 4px solid #374151;
+        border-radius: 8px;
+        box-shadow: 
+          0 0 0 4px #9ca3af,
+          0 0 0 8px #374151;
+      }
+
+      /* Toast Slide Down */
+      .animate-slide-down {
+        animation: slideDown 0.3s ease-out;
+      }
+      @keyframes slideDown {
+        0% { opacity: 0; transform: translateY(-20px); }
+        100% { opacity: 1; transform: translateY(0); }
+      }
+
+      /* --- NEW RETRO WEATHER ANIMATIONS --- */
+      
+      /* GLOBAL FALL (Use VH for full screen travel) */
+      .animate-weather-fall {
+        animation: weatherFall linear infinite;
+        will-change: transform;
+      }
+      @keyframes weatherFall {
+        0% { transform: translateY(0); }
+        100% { transform: translateY(100vh); }
+      }
+
+      /* GLOBAL SLIDE (For Sandstorm) */
+      .animate-weather-slide {
+        animation: weatherSlide linear infinite;
+        will-change: transform;
+      }
+      @keyframes weatherSlide {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(100vw); }
+      }
+
+      /* Pixel Rain Fall (Deprecated, kept for compatibility if needed) */
+      .animate-pixel-rain {
+        animation: pixelRain 0.6s linear infinite;
+        background-size: 100% 200%;
+      }
+      @keyframes pixelRain {
+        0% { background-position: 0% 0%; }
+        100% { background-position: 0% 200%; }
+      }
+
+      /* Heat Haze (Step Animation) */
+      .animate-heat-haze {
+        animation: heatHaze 2s steps(4) infinite;
+      }
+      @keyframes heatHaze {
+        0% { transform: translate(0, 0) scale(1); opacity: 0.2; }
+        25% { transform: translate(1px, 1px) scale(1.01); opacity: 0.25; }
+        50% { transform: translate(-1px, 0) scale(1); opacity: 0.2; }
+        75% { transform: translate(0, 1px) scale(1.01); opacity: 0.15; }
+        100% { transform: translate(0, 0) scale(1); opacity: 0.2; }
+      }
+
+      /* Glitch RGB Split */
+      .animate-glitch-layer {
+        animation: glitchLayer 2s steps(20) infinite;
+      }
+      @keyframes glitchLayer {
+        0% { transform: translate(0,0); }
+        2% { transform: translate(-2px,0); }
+        4% { transform: translate(2px,0); }
+        6% { transform: translate(0,0); }
+        100% { transform: translate(0,0); }
+      }
+
+      /* CRT Scanline */
+      .animate-scanline {
+        animation: scanline 4s linear infinite;
+      }
+      @keyframes scanline {
+        0% { transform: translateY(-100%); }
+        100% { transform: translateY(100vh); }
+      }
+
+      /* Noise Flicker */
+      .animate-noise-grain {
+        animation: noiseGrain 0.2s steps(3) infinite;
+      }
+      @keyframes noiseGrain {
+        0% { background-position: 0 0; }
+        100% { background-position: 100px 100px; }
+      }
+
+      /* Pixel Snow Fall (Slow Sway) */
+      .animate-pixel-snow {
+        animation: pixelSnow 10s linear infinite;
+      }
+      @keyframes pixelSnow {
+        0% { transform: translateY(-100%); }
+        100% { transform: translateY(100%); }
+      }
+      
+      /* REALISTIC DOUBLE LIGHTNING FLASH */
+      .animate-double-flash {
+        animation: doubleFlash ease-out infinite;
+        will-change: opacity;
+      }
+      @keyframes doubleFlash {
+        0% { opacity: 0; }
+        92% { opacity: 0; }
+        93% { opacity: 0.8; }
+        94% { opacity: 0.1; }
+        95% { opacity: 1; }
+        98% { opacity: 0; }
+        100% { opacity: 0; }
+      }
+
+      /* SLOW GROWING ELECTRICITY (Static Field) */
+      .animate-draw-lines {
+        stroke-dasharray: 1000;
+        stroke-dashoffset: 1000;
+        animation: drawLines linear infinite;
+      }
+      @keyframes drawLines {
+        0% { stroke-dashoffset: 1000; opacity: 0; }
+        5% { opacity: 1; }
+        50% { stroke-dashoffset: 0; opacity: 1; }
+        70% { opacity: 0; }
+        100% { stroke-dashoffset: 0; opacity: 0; }
+      }
+
+      /* ELECTRIC JITTER (Crackling Effect) */
+      .animate-rough-jitter {
+        animation: roughJitter 0.1s steps(2) infinite;
+      }
+      @keyframes roughJitter {
+        0% { transform: translate(0, 0); }
+        25% { transform: translate(1px, 1px); }
+        50% { transform: translate(-1px, -1px); }
+        75% { transform: translate(2px, -1px); }
+        100% { transform: translate(0, 0); }
+      }
+
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
+    "url": "https://esm.sh/url@^0.11.4",
+    "path": "https://esm.sh/path@^0.12.7",
+    "peerjs": "https://esm.sh/peerjs@^1.5.5",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "vite": "https://esm.sh/vite@^7.2.7",
+    "zustand": "https://esm.sh/zustand@^5.0.9",
+    "zustand/": "https://esm.sh/zustand@^5.0.9/"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+</body>
+</html>
