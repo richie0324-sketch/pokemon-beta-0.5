@@ -1,7 +1,7 @@
 
 import { create } from 'zustand';
 // FIX: Import SaveData type.
-import { Pokemon, Trainer, InventorySlot, SaveData } from '../types';
+import { Pokemon, Trainer, InventorySlot, SaveData, Difficulty } from '../types';
 
 type Animation = 'none' | 'player' | 'enemy';
 type CatchAnimation = 'none' | 'throwing' | 'shaking' | 'success' | 'fail';
@@ -34,6 +34,7 @@ interface BattleStoreState {
     isMyTurn: boolean; // Controls UI Lock
     peerOpponent: PeerOpponent | null;
     mpTurnNumber: number; // NEW: For syncing turn order/race conditions
+    sharedDifficulty: Difficulty | null; // NEW: Synced difficulty
 
     // TRADE STATE
     tradeOffer: Pokemon | null;
@@ -70,7 +71,8 @@ interface BattleStoreState {
     setPeerOpponent: (opponent: PeerOpponent | null) => void;
     setIsMultiplayer: (isMulti: boolean) => void;
     setIsMyTurn: (isMyTurn: boolean) => void;
-    setMpTurnNumber: (n: number) => void; // NEW
+    setMpTurnNumber: (n: number) => void;
+    setSharedDifficulty: (d: Difficulty | null) => void;
 
     // Trade Actions
     setTradeOffer: (p: Pokemon | null) => void;
@@ -109,6 +111,7 @@ const initialBattleState = {
     isMyTurn: true,
     peerOpponent: null,
     mpTurnNumber: 0,
+    sharedDifficulty: null,
     
     tradeOffer: null,
     peerTradeOffer: null,
@@ -148,6 +151,7 @@ export const useBattleStore = create<BattleStoreState>((set, get) => ({
     setIsMultiplayer: (isMulti: boolean) => set({ isMultiplayer: isMulti }),
     setIsMyTurn: (isMyTurn: boolean) => set({ isMyTurn }),
     setMpTurnNumber: (n: number) => set({ mpTurnNumber: n }),
+    setSharedDifficulty: (d) => set({ sharedDifficulty: d }),
 
     setTradeOffer: (p) => set({ tradeOffer: p }),
     setPeerTradeOffer: (p) => set({ peerTradeOffer: p }),
@@ -160,7 +164,7 @@ export const useBattleStore = create<BattleStoreState>((set, get) => ({
         isPeerTradeConfirmed: false,
     }),
 
-    startWildEncounter: (enemy) => {
+    startWildEncounter: (enemy: Pokemon) => {
         get().resetBattleState();
         set({
             isTrainerBattle: false,
@@ -204,7 +208,8 @@ export const useBattleStore = create<BattleStoreState>((set, get) => ({
             currentTrainer: null, 
             enemyTeam: [], 
             battleTimer: null,
-            mpTurnNumber: 0
+            mpTurnNumber: 0,
+            sharedDifficulty: null
         });
     },
     

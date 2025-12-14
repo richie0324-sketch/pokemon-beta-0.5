@@ -23,6 +23,7 @@ interface UseMathEngineProps {
     onCorrect: (coefficient: number) => void;
     onIncorrect: () => void;
     onQuestionLoaded?: () => void;
+    overrideDifficulty?: Difficulty | null; // NEW
 }
 
 export const useMathEngine = ({ 
@@ -33,7 +34,8 @@ export const useMathEngine = ({
     questionSeed,
     onCorrect,
     onIncorrect,
-    onQuestionLoaded
+    onQuestionLoaded,
+    overrideDifficulty
 }: UseMathEngineProps) => {
     
     const [question, setQuestion] = useState<MathQuestion | null>(null);
@@ -56,7 +58,7 @@ export const useMathEngine = ({
         setEffectivenessMsg('');
         
         setTimeout(() => {
-            const difficulty = getDifficultyFromRarity(enemyPokemon.rarity);
+            const difficulty = overrideDifficulty || getDifficultyFromRarity(enemyPokemon.rarity);
             setCurrentDiff(DIFFICULTY_COEFF[difficulty] || 1.0);
             
             let q: MathQuestion;
@@ -96,7 +98,7 @@ export const useMathEngine = ({
 
     useEffect(() => {
         loadQuestion();
-    }, [isCatchPhase, enemyPokemon.id, topic, questionSeed]);
+    }, [isCatchPhase, enemyPokemon.id, topic, questionSeed, overrideDifficulty]);
 
     const handleAnswer = (index: number) => {
         if (feedback !== null || !question) return;

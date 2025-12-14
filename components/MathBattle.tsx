@@ -14,7 +14,7 @@ import { calculateDamage } from '../services/battleMechanics';
 
 const MathBattle: React.FC = () => {
   const playerPokemon = usePlayerStore(state => state.playerPokemon);
-  const { enemyPokemon, battleMessage, questionSeed, isTrainerBattle, setBattleTimer, isMultiplayer, isMyTurn, battleModifiers, setBattleMessage } = useBattleStore(useShallow(state => ({
+  const { enemyPokemon, battleMessage, questionSeed, isTrainerBattle, setBattleTimer, isMultiplayer, isMyTurn, battleModifiers, setBattleMessage, sharedDifficulty } = useBattleStore(useShallow(state => ({
       enemyPokemon: state.enemyPokemon,
       battleMessage: state.battleMessage,
       questionSeed: state.questionSeed,
@@ -23,7 +23,8 @@ const MathBattle: React.FC = () => {
       isMultiplayer: state.isMultiplayer,
       isMyTurn: state.isMyTurn,
       battleModifiers: state.battleModifiers,
-      setBattleMessage: state.setBattleMessage
+      setBattleMessage: state.setBattleMessage,
+      sharedDifficulty: state.sharedDifficulty
   })));
   const gameState = useGameStore(state => state.gameState);
   const selectedTopic = useGameStore(state => state.selectedTopic);
@@ -37,6 +38,7 @@ const MathBattle: React.FC = () => {
   const handleCorrect = (coeff: number) => {
       if (isMultiplayer) {
           // P2P Logic: Calculate raw damage
+          // Note: Attacker calculates damage based on their view. 
           const { damage } = calculateDamage(playerPokemon, enemyPokemon, coeff, true, battleModifiers.atk, 1.0);
           multiplayer.sendAttack(damage);
       } else {
@@ -80,7 +82,8 @@ const MathBattle: React.FC = () => {
           }
       },
       onCorrect: handleCorrect,
-      onIncorrect: handleIncorrect
+      onIncorrect: handleIncorrect,
+      overrideDifficulty: isMultiplayer ? sharedDifficulty : undefined
   });
 
   // --- MULTIPLAYER WAITING SCREEN ---

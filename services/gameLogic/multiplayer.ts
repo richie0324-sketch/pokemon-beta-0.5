@@ -1,5 +1,5 @@
 
-import { GameState, PeerMessage, Pokemon } from '../../types';
+import { GameState, PeerMessage, Pokemon, Difficulty } from '../../types';
 import { useGameStore } from '../../store/useGameStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useBattleStore } from '../../store/useBattleStore';
@@ -12,7 +12,7 @@ export const multiplayer = {
     // 1. Handle Incoming Messages
     handleIncomingMessage: (msg: PeerMessage, senderId: string) => {
         const battleStore = useBattleStore.getState();
-        const { setPeerOpponent, setIsMyTurn, setBattleMessage, setAttackAnim, setDamageAnim, peerOpponent, isMultiplayer, setPeerTradeOffer, setIsPeerTradeConfirmed, isTradeConfirmed, tradeOffer, resetTradeState, mpTurnNumber, setMpTurnNumber } = battleStore;
+        const { setPeerOpponent, setIsMyTurn, setBattleMessage, setAttackAnim, setDamageAnim, peerOpponent, isMultiplayer, setPeerTradeOffer, setIsPeerTradeConfirmed, isTradeConfirmed, tradeOffer, resetTradeState, mpTurnNumber, setMpTurnNumber, setEnemyPokemon } = battleStore;
         const { setGameState } = useGameStore.getState();
         const { playerPokemon, setPlayerPokemon } = usePlayerStore.getState();
 
@@ -40,7 +40,7 @@ export const multiplayer = {
                     showToast("Challenge Accepted!", "success");
                     if (msg.payload.seed) {
                         const isFirst = msg.payload.firstPlayerId === peerService.myId;
-                        multiplayer.startBattleLocal(msg.payload.seed, isFirst);
+                        multiplayer.startBattleLocal(msg.payload.seed, isFirst, msg.payload.difficulty);
                     }
                 } else {
                     showToast("Challenge Declined.", "error");
@@ -48,6 +48,7 @@ export const multiplayer = {
                 break;
 
             case 'BATTLE_INIT':
+                // Fallback / legacy handler if used
                 const { seed, firstPlayerId } = msg.payload;
                 const isMine = firstPlayerId === peerService.myId;
                 multiplayer.startBattleLocal(seed, isMine);
@@ -98,6 +99,15 @@ export const multiplayer = {
             case 'TURN_END':
                 if (!isMultiplayer) return;
                 if (msg.payload.turnNumber === mpTurnNumber) {
+                    
+                    // HP Sync: Correct the enemy health bar based on opponent's truth
+                    if (msg.payload.hp !== undefined && battleStore.enemyPokemon) {
+                        setEnemyPokemon({ 
+                            ...battleStore.enemyPokemon, 
+                            currHp: msg.payload.hp 
+                        });
+                    }
+
                     // Advance turn only if matching
                     setMpTurnNumber(mpTurnNumber + 1);
                     setIsMyTurn(true);
@@ -146,21 +156,27 @@ export const multiplayer = {
         const firstPlayerId = myId > opponentId ? myId : opponentId;
         const seed = Math.random();
         
+        // Pick a shared difficulty to ensure fairness
+        const diffs: Difficulty[] = ['Easy', 'Medium', 'Hard', 'Challenge'];
+        const sharedDiff = diffs[Math.floor(Math.random() * diffs.length)];
+
         peerService.send({ 
             type: 'CHALLENGE_RESPONSE', 
-            payload: { accepted: true, seed, firstPlayerId } 
+            payload: { accepted: true, seed, firstPlayerId, difficulty: sharedDiff } 
         });
         
-        multiplayer.startBattleLocal(seed, firstPlayerId === myId);
+        multiplayer.startBattleLocal(seed, firstPlayerId === myId, sharedDiff);
     },
 
-    startBattleLocal: (seed: number, isMyTurn: boolean) => {
-        const { peerOpponent } = useBattleStore.getState();
+    startBattleLocal: (seed: number, isMyTurn: boolean, difficulty?: Difficulty) => {
+        const { peerOpponent, setSharedDifficulty } = useBattleStore.getState();
         
         if (!peerOpponent || !peerOpponent.team || peerOpponent.team.length === 0) {
             showToast("Error: Opponent data missing!", "error");
             return;
         }
+
+        if (difficulty) setSharedDifficulty(difficulty);
 
         useBattleStore.setState({
             isMultiplayer: true,
@@ -184,12 +200,18 @@ export const multiplayer = {
     },
 
     sendAttack: (damage: number) => {
-        const { mpTurnNumber, setBattleMessage, setAttackAnim } = useBattleStore.getState();
+        const { mpTurnNumber, setBattleMessage, setAttackAnim, enemyPokemon, setEnemyPokemon } = useBattleStore.getState();
         
         // 1. Show local animation first
         setBattleMessage("You attacked!");
         setAttackAnim('player');
         audioService.playSfx('attack');
+
+        // Immediate visual update for the attacker (estimation)
+        if (enemyPokemon) {
+            const newEnemyHp = Math.max(0, enemyPokemon.currHp - damage);
+            setEnemyPokemon({ ...enemyPokemon, currHp: newEnemyHp });
+        }
 
         // 2. Send Data
         peerService.send({ 
@@ -224,10 +246,19 @@ export const multiplayer = {
 
     endTurn: () => {
         const { mpTurnNumber } = useBattleStore.getState();
+        const { playerPokemon } = usePlayerStore.getState();
+        
         useBattleStore.getState().setIsMyTurn(false);
         useBattleStore.getState().setBattleMessage("Opponent's Turn...");
-        // Send current turn number so opponent can verify then increment
-        peerService.send({ type: 'TURN_END', payload: { turnNumber: mpTurnNumber } });
+        
+        // Send current HP for sync
+        peerService.send({ 
+            type: 'TURN_END', 
+            payload: { 
+                turnNumber: mpTurnNumber,
+                hp: playerPokemon?.currHp 
+            } 
+        });
         // Increment local turn count for safety
         useBattleStore.getState().setMpTurnNumber(mpTurnNumber + 1);
     },
