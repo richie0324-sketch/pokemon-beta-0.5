@@ -10,7 +10,10 @@ import { getRandomLesson } from '../../data/rescueLessons';
 
 export const RescueCenter: React.FC = () => {
     const selectedTopic = useGameStore(state => state.selectedTopic);
-    const streak = useBattleStore(state => state.streak);
+    const { streak, setStreak } = useBattleStore(useShallow(state => ({
+        streak: state.streak,
+        setStreak: state.setStreak
+    })));
     
     // STATE: Active Lesson
     const [lesson, setLesson] = useState(() => getRandomLesson(selectedTopic));
@@ -74,9 +77,11 @@ export const RescueCenter: React.FC = () => {
             setMistakes(newMistakes);
 
             if (newMistakes >= 2) {
-                // Defense #3: Forced Reset
+                // Defense #3: Forced Reset & Streak Penalty
                 setIsLocked(true);
-                setSystemMessage("TOO MANY ATTEMPTS. RECALIBRATING...");
+                setStreak(() => 0); // Reset Streak
+                setSystemMessage("CRITICAL FAILURE. STREAK LOST. RECALIBRATING...");
+                
                 setTimeout(() => {
                     audioService.playSfx('run');
                     loadNewLesson();
@@ -229,8 +234,8 @@ export const RescueCenter: React.FC = () => {
                     </button>
                     
                     <div className="flex items-center justify-center gap-2 text-xs md:text-sm text-slate-400 bg-slate-900/50 border border-slate-700 rounded-xl px-6 py-3">
-                        <span>Streak Preserved:</span>
-                        <span className="text-yellow-400 font-bold font-pixel text-lg">{streak}</span>
+                        <span>Streak:</span>
+                        <span className={`${mistakes >= 2 ? 'text-red-500 line-through' : 'text-yellow-400'} font-bold font-pixel text-lg`}>{streak}</span>
                     </div>
                 </div>
             </div>

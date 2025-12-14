@@ -32,27 +32,29 @@ import { DefeatScreen } from './components/screens/DefeatScreen';
 import { EvolutionScreen } from './components/screens/EvolutionScreen';
 import { BattleScreen } from './components/screens/BattleScreen';
 import { MultiplayerMenu } from './components/screens/MultiplayerMenu';
+import { MultiplayerTrade } from './components/screens/MultiplayerTrade'; // NEW
 import { TrainerIntro } from './components/screens/TrainerIntro';
 import { RescueCenter } from './components/screens/RescueCenter';
 import { WeatherLab } from './components/screens/WeatherLab';
 import { UIDebugger } from './components/screens/UIDebugger'; 
-import { EventEditor } from './components/screens/EventEditor'; // New
-import { AchievementsScreen } from './components/screens/AchievementsScreen'; // New
-import { TrainerCardView } from './components/screens/TrainerCardView'; // NEW
+import { EventEditor } from './components/screens/EventEditor'; 
+import { AchievementsScreen } from './components/screens/AchievementsScreen'; 
+import { TrainerCardView } from './components/screens/TrainerCardView'; 
 
-import { Play, Save, LogOut, Volume2, VolumeX, Wifi, Trophy, CreditCard } from 'lucide-react';
+import { Play, Save, LogOut, Volume2, VolumeX, Wifi, Trophy, CreditCard, Wrench } from 'lucide-react';
 
 const GameModals: React.FC = () => {
-    const { gameState, isMuted, isDebugOpen, currentEvent } = useGameStore(useShallow(state => ({
+    const { gameState, isMuted, isDebugOpen, currentEvent, debugModeEnabled } = useGameStore(useShallow(state => ({
         gameState: state.gameState,
         isMuted: state.isMuted,
         isDebugOpen: state.isDebugOpen,
         currentEvent: state.currentEvent,
+        debugModeEnabled: state.debugModeEnabled
     })));
     
     const { saveGame, toggleMute, resolveEvent } = logic;
     
-    const { setGameState } = useGameStore.getState();
+    const { setGameState, setIsDebugOpen } = useGameStore.getState();
 
     const handleOpenMultiplayer = () => {
       audioService.playSfx('click');
@@ -90,6 +92,12 @@ const GameModals: React.FC = () => {
                         {isMuted ? "UNMUTE SOUND" : "MUTE SOUND"}
                     </button>
                     
+                    {debugModeEnabled && (
+                        <button onClick={() => { audioService.playSfx('click'); setIsDebugOpen(true); }} className="w-full py-3 bg-red-900/80 text-red-200 font-bold rounded-lg flex items-center justify-center gap-2 border border-red-700/50 transition-transform active:scale-95">
+                            <Wrench size={20} /> ADMIN TOOLS
+                        </button>
+                    )}
+                    
                     <button onClick={() => { audioService.playSfx('click'); saveGame(); }} className="w-full py-3 bg-green-600 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-transform active:scale-95"><Save size={20} /> SAVE GAME</button>
                     
                     <div className="flex gap-2">
@@ -121,6 +129,7 @@ const AppScreens: React.FC = () => {
         case GameState.MENU_NAME_INPUT: return <NameInput />;
         case GameState.MENU_STARTER_SELECT: return <StarterSelect />;
         case GameState.MENU_MULTIPLAYER: return <MultiplayerMenu />;
+        case GameState.MULTIPLAYER_TRADE: return <MultiplayerTrade />; // NEW
         
         case GameState.WILD_ENCOUNTER: return <EncounterScreen isLegendary={enemyPokemon?.isLegendary} />;
         case GameState.TRAINER_INTRO: return <TrainerIntro />;

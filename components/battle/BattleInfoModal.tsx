@@ -48,34 +48,42 @@ export const BattleInfoModal = memo(({
     const isChampion = currentBadgeCount >= 8;
 
     return (
-        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
-            <div className="bg-slate-800 w-full max-w-md rounded-xl border-4 border-slate-600 shadow-2xl p-6 relative" onClick={e => e.stopPropagation()}>
-                <button onClick={onClose} className="absolute top-4 right-4 text-white hover:bg-white/10 rounded-full p-1"><X /></button>
+        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-2 md:p-4 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
+            <div 
+                className="bg-slate-800 w-full max-w-md rounded-xl border-4 border-slate-600 shadow-2xl p-4 md:p-6 relative max-h-[90vh] overflow-y-auto" 
+                onClick={e => e.stopPropagation()}
+            >
+                <button 
+                    onClick={onClose} 
+                    className="absolute top-3 right-3 md:top-4 md:right-4 text-white bg-black/20 hover:bg-white/10 rounded-full p-2 md:p-1 transition-colors z-10"
+                >
+                    <X size={20} />
+                </button>
                 
-                <h3 className="text-xl font-bold text-white mb-6 font-pixel flex items-center gap-2">
+                <h3 className="text-lg md:text-xl font-bold text-white mb-4 md:mb-6 font-pixel flex items-center gap-2 pr-8">
                     <Info className="text-blue-400" /> {isTrainerBattle ? 'TRAINER INTEL' : 'BATTLE ODDS'}
                 </h3>
 
                 {/* SECTION 1: BATTLE STATUS */}
-                <div className="bg-slate-900 p-4 rounded-lg border border-slate-700 mb-6">
-                    <h4 className="text-yellow-400 font-bold mb-2 text-sm uppercase tracking-wider flex items-center gap-2">
+                <div className="bg-slate-900 p-3 md:p-4 rounded-lg border border-slate-700 mb-4 md:mb-6">
+                    <h4 className="text-yellow-400 font-bold mb-2 text-xs md:text-sm uppercase tracking-wider flex items-center gap-2">
                         <Star size={14} className="fill-yellow-400" /> {enemyPokemon.isLegendary ? 'Legendary Encounter' : (isTrainerBattle ? 'Gym Challenge' : 'League Progress')}
                     </h4>
                     
                     {!isTrainerBattle && (
                         <>
                             <div className="flex justify-between items-end mb-1">
-                                <span className="text-white text-lg font-bold">
+                                <span className="text-white text-base md:text-lg font-bold">
                                     {isChampion ? `${streak} Wins (Champion)` : `${streak} / ${nextGymStreak} Wins`}
                                 </span>
-                                <span className="text-slate-400 text-xs">
+                                <span className="text-slate-400 text-[10px] md:text-xs">
                                     {isChampion ? 'Endless Mode' : 'Next Gym Leader'}
                                 </span>
                             </div>
                             <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
                                 <div className="h-full bg-yellow-500 transition-all duration-500" style={{ width: `${Math.min(100, (streak / nextGymStreak) * 100)}%` }}></div>
                             </div>
-                            <p className="text-slate-500 text-xs mt-2 italic">
+                            <p className="text-slate-500 text-[10px] md:text-xs mt-2 italic">
                                 {isChampion 
                                     ? "You have defeated all Gym Leaders! Test your limits." 
                                     : "Reach the target streak to challenge the next Gym Leader and earn a Badge!"}
@@ -84,16 +92,16 @@ export const BattleInfoModal = memo(({
                     )}
                     
                     {isTrainerBattle && (
-                         <div className="text-white font-bold text-lg">
+                         <div className="text-white font-bold text-base md:text-lg">
                              Current Streak: {streak}
                          </div>
                     )}
                 </div>
 
                 {/* SECTION 2: ENCOUNTER ODDS or TRAINER INFO */}
-                <div className="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                <div className="bg-slate-900 p-3 md:p-4 rounded-lg border border-slate-700">
                      <div className="flex justify-between items-center mb-3">
-                         <h4 className="text-blue-400 font-bold text-sm uppercase tracking-wider">
+                         <h4 className="text-blue-400 font-bold text-xs md:text-sm uppercase tracking-wider">
                              {isTrainerBattle ? 'Opponent Details' : `Spawn Rates (Lv.${playerLevel})`}
                          </h4>
                      </div>
@@ -101,51 +109,53 @@ export const BattleInfoModal = memo(({
                      {isTrainerBattle ? (
                         <div className="space-y-3">
                             <div className="flex items-center gap-3">
-                                <User className="text-white" size={24} />
+                                <div className="bg-slate-800 p-2 rounded-full border border-slate-600">
+                                    <User className="text-white" size={20} />
+                                </div>
                                 <div>
-                                    <div className="text-white font-bold">{trainerName}</div>
+                                    <div className="text-white font-bold text-sm md:text-base">{trainerName}</div>
                                     <div className="text-slate-400 text-xs">Enemy Trainer</div>
                                 </div>
                             </div>
                             <div className="flex justify-between items-center p-2 bg-slate-800 rounded">
-                                <span className="text-slate-300 text-sm font-bold">Team Size</span>
-                                <span className="text-white font-mono font-bold">{enemyTeamCount} Pokemon</span>
+                                <span className="text-slate-300 text-xs md:text-sm font-bold">Team Size</span>
+                                <span className="text-white font-mono text-xs md:text-sm font-bold">{enemyTeamCount} Pokemon</span>
                             </div>
                             <div className="flex justify-between items-center p-2 bg-slate-800 rounded">
-                                <span className="text-slate-300 text-sm font-bold">Rank</span>
-                                <span className={`font-mono font-bold uppercase ${getTierColor(currentTrainer?.tier || 'Common')}`}>
+                                <span className="text-slate-300 text-xs md:text-sm font-bold">Rank</span>
+                                <span className={`font-mono text-xs md:text-sm font-bold uppercase ${getTierColor(currentTrainer?.tier || 'Common')}`}>
                                     {currentTrainer?.tier || 'Unknown'}
                                 </span>
                             </div>
                             {/* Prize Info */}
                             <div className="flex justify-between items-center p-2 bg-slate-800 rounded border border-yellow-500/20">
-                                <span className="text-yellow-500 text-sm font-bold flex items-center gap-1"><Coins size={14}/> Cash Prize</span>
-                                <span className="text-white font-mono font-bold">${currentTrainer?.baseMoney}</span>
+                                <span className="text-yellow-500 text-xs md:text-sm font-bold flex items-center gap-1"><Coins size={14}/> Cash Prize</span>
+                                <span className="text-white font-mono text-xs md:text-sm font-bold">${currentTrainer?.baseMoney}</span>
                             </div>
                             {/* Item Drops */}
                             <div className="bg-slate-800 p-2 rounded border border-slate-600">
-                                <span className="text-slate-400 text-xs font-bold uppercase flex items-center gap-1 mb-2"><Gift size={12}/> Potential Drops</span>
+                                <span className="text-slate-400 text-[10px] md:text-xs font-bold uppercase flex items-center gap-1 mb-2"><Gift size={12}/> Potential Drops</span>
                                 {currentTrainer?.rewardItems && currentTrainer.rewardItems.length > 0 ? (
                                     <div className="flex flex-wrap gap-2">
                                         {currentTrainer.rewardItems.map((drop, idx) => (
-                                            <span key={idx} className="text-xs bg-black/40 px-2 py-1 rounded text-white border border-slate-600">
+                                            <span key={idx} className="text-[10px] md:text-xs bg-black/40 px-2 py-1 rounded text-white border border-slate-600">
                                                 {ITEM_REGISTRY[drop.itemId]?.name || drop.itemId} <span className="text-slate-500">({Math.round(drop.chance * 100)}%)</span>
                                             </span>
                                         ))}
                                     </div>
                                 ) : (
-                                    <span className="text-xs text-slate-500 italic">No item drops</span>
+                                    <span className="text-[10px] md:text-xs text-slate-500 italic">No item drops</span>
                                 )}
                             </div>
                         </div>
                      ) : (
-                        <div className="space-y-4">
+                        <div className="space-y-3 md:space-y-4">
                             {/* CURRENT TARGET INFO */}
                             <div className="border-b border-slate-700 pb-4">
-                                <h5 className="text-slate-400 text-xs font-bold uppercase mb-2">Current Target ({enemyPokemon.rarity})</h5>
+                                <h5 className="text-slate-400 text-[10px] md:text-xs font-bold uppercase mb-2">Current Target ({enemyPokemon.rarity})</h5>
                                 <div className="flex justify-between items-center p-2 bg-slate-800 rounded">
-                                    <span className="text-slate-300 text-sm font-bold">Base Catch Rate</span>
-                                    <span className={`font-mono font-bold ${catchRateInfo.color}`}>{catchRateInfo.label}</span>
+                                    <span className="text-slate-300 text-xs md:text-sm font-bold">Base Catch Rate</span>
+                                    <span className={`font-mono text-xs md:text-sm font-bold ${catchRateInfo.color}`}>{catchRateInfo.label}</span>
                                 </div>
                                 <p className="text-[10px] text-slate-500 mt-1">
                                     Tip: Lower HP and better balls increase this chance!
@@ -153,26 +163,26 @@ export const BattleInfoModal = memo(({
                             </div>
 
                             {/* SPAWN TABLE */}
-                            <div className="space-y-2">
+                            <div className="space-y-1.5 md:space-y-2">
                                 <div className="flex justify-between items-center p-2 bg-slate-800 rounded">
-                                    <span className="text-slate-300 text-sm font-bold">Common</span>
-                                    <span className="text-white font-mono">{odds.Common}%</span>
+                                    <span className="text-slate-300 text-xs md:text-sm font-bold">Common</span>
+                                    <span className="text-white font-mono text-xs md:text-sm">{odds.Common}%</span>
                                 </div>
                                 <div className={`flex justify-between items-center p-2 rounded ${odds.Rare > 0 ? 'bg-slate-800' : 'bg-slate-800/50 opacity-50'}`}>
-                                    <span className="text-blue-300 text-sm font-bold flex items-center gap-2">Rare {odds.Rare === 0 && <Lock size={10}/>}</span>
-                                    <span className="text-white font-mono">{odds.Rare}%</span>
+                                    <span className="text-blue-300 text-xs md:text-sm font-bold flex items-center gap-2">Rare {odds.Rare === 0 && <Lock size={10}/>}</span>
+                                    <span className="text-white font-mono text-xs md:text-sm">{odds.Rare}%</span>
                                 </div>
                                 <div className={`flex justify-between items-center p-2 rounded ${odds.Elite > 0 ? 'bg-slate-800' : 'bg-slate-800/50 opacity-50'}`}>
-                                    <span className="text-purple-300 text-sm font-bold flex items-center gap-2">Elite {odds.Elite === 0 && <Lock size={10}/>}</span>
-                                    <span className="text-white font-mono">{odds.Elite}%</span>
+                                    <span className="text-purple-300 text-xs md:text-sm font-bold flex items-center gap-2">Elite {odds.Elite === 0 && <Lock size={10}/>}</span>
+                                    <span className="text-white font-mono text-xs md:text-sm">{odds.Elite}%</span>
                                 </div>
                                 <div className={`flex justify-between items-center p-2 rounded ${odds.Ultra > 0 ? 'bg-slate-800 border border-red-900/30' : 'bg-slate-800/50 opacity-50'}`}>
-                                    <span className="text-red-400 text-sm font-bold flex items-center gap-2">Ultra {odds.Ultra === 0 && <Lock size={10}/>}</span>
-                                    <span className="text-white font-mono">{odds.Ultra}%</span>
+                                    <span className="text-red-400 text-xs md:text-sm font-bold flex items-center gap-2">Ultra {odds.Ultra === 0 && <Lock size={10}/>}</span>
+                                    <span className="text-white font-mono text-xs md:text-sm">{odds.Ultra}%</span>
                                 </div>
                                 <div className={`flex justify-between items-center p-2 rounded ${odds.Legendary > 0 ? 'bg-slate-800 border border-yellow-900/30' : 'bg-slate-800/50 opacity-50'}`}>
-                                    <span className="text-yellow-400 text-sm font-bold flex items-center gap-2">Legendary {odds.Legendary === 0 && <Lock size={10}/>}</span>
-                                    <span className="text-white font-mono">{odds.Legendary}%</span>
+                                    <span className="text-yellow-400 text-xs md:text-sm font-bold flex items-center gap-2">Legendary {odds.Legendary === 0 && <Lock size={10}/>}</span>
+                                    <span className="text-white font-mono text-xs md:text-sm">{odds.Legendary}%</span>
                                 </div>
                             </div>
                         </div>
@@ -180,13 +190,13 @@ export const BattleInfoModal = memo(({
 
                      {!isTrainerBattle && (odds.nextTierLevel > 0 ? (
                          <div className="mt-3 pt-3 border-t border-slate-800 text-center">
-                             <p className="text-xs text-green-400 font-bold">
+                             <p className="text-[10px] md:text-xs text-green-400 font-bold">
                                  Reach Level {odds.nextTierLevel} for better odds!
                              </p>
                          </div>
                      ) : (
                          <div className="mt-3 pt-3 border-t border-slate-800 text-center">
-                             <p className="text-xs text-yellow-500 font-bold">
+                             <p className="text-[10px] md:text-xs text-yellow-500 font-bold">
                                  MAXIMUM RARITY ODDS REACHED!
                              </p>
                          </div>

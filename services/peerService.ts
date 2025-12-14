@@ -8,18 +8,19 @@ export type { PeerMessage };
 class PeerService {
     private peer: Peer | null = null;
     private conn: DataConnection | null = null;
-    private myId: string = '';
+    public myId: string = ''; // Made public for easier access if needed
     
     // Callbacks
     private onStatusChange: ((status: PeerStatus, msg?: string) => void) | null = null;
-    private onDataReceived: ((data: PeerMessage) => void) | null = null;
+    // UPDATED: Now provides the sender's Peer ID alongside the data
+    private onDataReceived: ((data: PeerMessage, peerId: string) => void) | null = null;
 
     constructor() {
         // Singleton pattern handled by export
     }
 
     // Initialize as Host or Guest (get an ID from PeerServer)
-    init(onId: (id: string) => void, onStatus: (s: PeerStatus, m?: string) => void, onData: (d: PeerMessage) => void) {
+    init(onId: (id: string) => void, onStatus: (s: PeerStatus, m?: string) => void, onData: (d: PeerMessage, pid: string) => void) {
         this.onStatusChange = onStatus;
         this.onDataReceived = onData;
 
@@ -27,8 +28,6 @@ class PeerService {
         if (this.peer) this.peer.destroy();
 
         // Create Peer. 
-        // Note: We use the default public PeerJS server. 
-        // For production school usage, a local PeerServer is recommended but public works for prototypes.
         this.peer = new Peer();
 
         this.onStatusChange('CONNECTING', 'Connecting to Global Server...');
@@ -67,7 +66,8 @@ class PeerService {
 
         conn.on('data', (data) => {
             if (this.onDataReceived) {
-                this.onDataReceived(data as PeerMessage);
+                // PASS THE CONNECTION PEER ID CORRECTLY
+                this.onDataReceived(data as PeerMessage, conn.peer);
             }
         });
 

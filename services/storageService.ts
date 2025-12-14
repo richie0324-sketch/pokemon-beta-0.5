@@ -1,9 +1,11 @@
 
-import { SaveData, Pokemon, GameState, MathTopic, InventorySlot, PokemonRarity } from '../types';
+import { SaveData, Pokemon, InventorySlot, PokemonRarity, SaveMetadata } from '../types';
 import { getExpToNextLevel, RARITY_BASE_STATS } from '../constants';
 import { POKEDEX_REGISTRY } from '../data/pokedexData';
 
-const SAVE_KEY = 'mathmon_save_v2';
+// New Slot Keys
+const SAVE_SLOT_PREFIX = 'mathmon_save_slot_';
+const MAX_SLOTS = 3;
 
 // Starter kit for new saves
 const INITIAL_INVENTORY: InventorySlot[] = [
@@ -15,20 +17,67 @@ const INITIAL_INVENTORY: InventorySlot[] = [
 const INITIAL_MONEY = 3000;
 
 export const StorageService = {
-    hasSave(): boolean {
-        return !!localStorage.getItem(SAVE_KEY);
+    // Migration helper: Move old save to slot 1 if slot 1 is empty and old save exists
+    migrateLegacySave(): void {
+        const oldSave = localStorage.getItem('mathmon_save_v2');
+        const slot1 = localStorage.getItem(`${SAVE_SLOT_PREFIX}1`);
+        
+        if (oldSave && !slot1) {
+            localStorage.setItem(`${SAVE_SLOT_PREFIX}1`, oldSave);
+            // Optional: Remove old key to prevent confusion, or keep as backup
+            // localStorage.removeItem('mathmon_save_v2'); 
+        }
     },
 
-    save(data: SaveData): void {
+    hasAnySave(): boolean {
+        StorageService.migrateLegacySave();
+        for (let i = 1; i <= MAX_SLOTS; i++) {
+            if (localStorage.getItem(`${SAVE_SLOT_PREFIX}${i}`)) return true;
+        }
+        return false;
+    },
+
+    getSlotInfo(slotId: number): SaveMetadata {
+        StorageService.migrateLegacySave();
+        const raw = localStorage.getItem(`${SAVE_SLOT_PREFIX}${slotId}`);
+        if (!raw) {
+            return { slotId, isEmpty: true };
+        }
         try {
-            localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+            const data: SaveData = JSON.parse(raw);
+            return {
+                slotId,
+                isEmpty: false,
+                playerName: data.playerName,
+                badges: data.badges.length,
+                money: data.money,
+                playTime: data.saveDate,
+                avatar: data.playerAvatar
+            };
+        } catch {
+            return { slotId, isEmpty: true };
+        }
+    },
+
+    getAllSlots(): SaveMetadata[] {
+        const slots: SaveMetadata[] = [];
+        for (let i = 1; i <= MAX_SLOTS; i++) {
+            slots.push(StorageService.getSlotInfo(i));
+        }
+        return slots;
+    },
+
+    save(data: SaveData, slotId: number = 1): void {
+        try {
+            localStorage.setItem(`${SAVE_SLOT_PREFIX}${slotId}`, JSON.stringify(data));
         } catch (e) {
             console.error("Failed to save game", e);
         }
     },
 
-    load(): SaveData | null {
-        const raw = localStorage.getItem(SAVE_KEY);
+    load(slotId: number = 1): SaveData | null {
+        StorageService.migrateLegacySave();
+        const raw = localStorage.getItem(`${SAVE_SLOT_PREFIX}${slotId}`);
         if (!raw) return null;
 
         try {
@@ -37,18 +86,11 @@ export const StorageService = {
             // --- DATA MIGRATION / POLYFILLS ---
             
             const polyfillPokemon = (p: any): Pokemon => {
-                // If description looks like old default or is missing, try to fetch fresh base stats
-                // We want to recalculate stats using the new formula:
-                // HP = Base + IV + Level*2
-                // Atk = Base + IV + Level
-                
                 const level = p.level || 1;
                 const ivs = p.ivs || { hp: 0, atk: 0, def: 0 };
                 
-                // Try to find original registry entry for accurate Base Stats
                 const entry = POKEDEX_REGISTRY.find(e => e.speciesId === p.speciesId);
                 
-                // Fallback base stats if not found (using new Rarity ranges)
                 let baseHp = 50;
                 let baseAtk = 50;
                 let baseDef = 50;
@@ -65,7 +107,6 @@ export const StorageService = {
                     baseDef = range.def[0];
                 }
 
-                // Apply New Formula
                 const maxHp = baseHp + ivs.hp + (level * 2);
                 const attack = baseAtk + ivs.atk + level;
                 const defense = baseDef + ivs.def + level;
@@ -73,7 +114,7 @@ export const StorageService = {
                 return {
                     ...p,
                     maxHp: maxHp,
-                    currHp: Math.min(p.currHp, maxHp), // Clamp HP
+                    currHp: Math.min(p.currHp, maxHp), 
                     attack: attack,
                     defense: defense,
                     description: p.description || "A Pokemon from a previous adventure.",
@@ -83,10 +124,9 @@ export const StorageService = {
                 };
             };
 
-            // Reconstruct clean SaveData object
             const cleanData: SaveData = {
                 playerName: data.playerName || 'Trainer',
-                playerAvatar: data.playerAvatar || 'https://play.pokemonshowdown.com/sprites/trainers/red.png', // Default
+                playerAvatar: data.playerAvatar || 'https://play.pokemonshowdown.com/sprites/trainers/red.png',
                 trainerId: data.trainerId || '00000',
                 badges: Array.isArray(data.badges) ? data.badges : [],
                 selectedTopic: data.selectedTopic || 'linear',
@@ -95,7 +135,6 @@ export const StorageService = {
                     ? data.caughtPokemon.map(polyfillPokemon) 
                     : [polyfillPokemon(data.playerPokemon)],
                 
-                // Added missing storagePokemon field
                 storagePokemon: Array.isArray(data.storagePokemon)
                     ? data.storagePokemon.map(polyfillPokemon)
                     : [],
@@ -117,7 +156,6 @@ export const StorageService = {
                 defeatedTrainers: Array.isArray(data.defeatedTrainers) ? data.defeatedTrainers : [],
                 unlockedAchievements: data.unlockedAchievements || {},
 
-                // New fields polyfill
                 activeBuffs: data.activeBuffs || {},
                 activeQuest: data.activeQuest || null,
                 activeField: data.activeField || 'NORMAL'
@@ -131,7 +169,51 @@ export const StorageService = {
         }
     },
 
+    deleteSlot(slotId: number): void {
+        localStorage.removeItem(`${SAVE_SLOT_PREFIX}${slotId}`);
+    },
+
     clear(): void {
-        localStorage.removeItem(SAVE_KEY);
+        try {
+            // Remove legacy key if it exists
+            localStorage.removeItem('mathmon_save_v2');
+            
+            // Remove all slots
+            for (let i = 1; i <= MAX_SLOTS; i++) {
+                localStorage.removeItem(`${SAVE_SLOT_PREFIX}${i}`);
+            }
+        } catch (e) {
+            console.error("Failed to clear saves", e);
+        }
+    },
+
+    // --- NEW: Save Code Export/Import ---
+    // Modified to default to slot 1 if not specified, or allow UI to pick
+    exportSave(slotId: number = 1): string | null {
+        const raw = localStorage.getItem(`${SAVE_SLOT_PREFIX}${slotId}`);
+        if (!raw) return null;
+        try {
+            return btoa(encodeURIComponent(raw));
+        } catch (e) {
+            console.error("Export failed", e);
+            return null;
+        }
+    },
+
+    importSave(code: string, slotId: number = 1): boolean {
+        try {
+            const raw = decodeURIComponent(atob(code.trim()));
+            const data = JSON.parse(raw);
+            
+            if (!data.playerName || !Array.isArray(data.caughtPokemon)) {
+                return false;
+            }
+            
+            localStorage.setItem(`${SAVE_SLOT_PREFIX}${slotId}`, raw);
+            return true;
+        } catch (e) {
+            console.error("Import failed", e);
+            return false;
+        }
     }
 };

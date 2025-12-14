@@ -36,11 +36,17 @@ export const core = {
         useGameStore.getState().setGameState(GameState.MENU_TOPIC_SELECT);
     },
 
-    handleLoadGame: () => {
+    // Updated to accept slotId explicitly (e.g., from the new Slot UI)
+    handleLoadGame: (slotId: number) => {
         audioService.init();
         audioService.playSfx('start');
-        const data = StorageService.load();
+        
+        const data = StorageService.load(slotId);
+        
         if (data) {
+            // Set current slot
+            useGameStore.getState().setCurrentSlotId(slotId);
+            
             useGameStore.getState().loadGameState(data);
             usePlayerStore.getState().loadPlayerState(data);
             useBattleStore.getState().loadBattleState(data);
@@ -48,7 +54,7 @@ export const core = {
             useGameStore.getState().setBackpackTab('TEAM'); 
             useGameStore.getState().setGameState(GameState.BACKPACK, GameState.MENU_MAIN);
         } else {
-            showToast("No save data found!", "warning");
+            showToast("No save data found in this slot!", "warning");
         }
     },
 
@@ -57,6 +63,9 @@ export const core = {
         const gameState = useGameStore.getState();
         const battleState = useBattleStore.getState();
         
+        // Use the active slot ID from the store
+        const slotId = gameState.currentSlotId || 1;
+
         StorageService.save({
           ...playerState,
           playerName: gameState.playerName,
@@ -74,8 +83,9 @@ export const core = {
           // Identity
           trainerId: playerState.trainerId,
           badges: playerState.badges
-        } as SaveData);
-        showToast("Game Saved Successfully!", "success");
+        } as SaveData, slotId);
+        
+        showToast(`Game Saved to Slot ${slotId}!`, "success");
     },
 
     chooseStarter: (starter: Pokemon) => {

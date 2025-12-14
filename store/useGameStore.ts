@@ -6,12 +6,14 @@ interface GameStoreState {
     gameState: GameState;
     prevState: GameState;
     playerName: string;
-    playerAvatar: string; // NEW
+    playerAvatar: string; 
+    currentSlotId: number; // NEW: Track which slot is active
     selectedTopic: MathTopic;
     isMuted: boolean;
     isDebugOpen: boolean;
     isUiDebuggerOpen: boolean; 
-    isEventEditorOpen: boolean; // NEW: Dedicated flag for Event Library
+    isEventEditorOpen: boolean; 
+    debugModeEnabled: boolean; // NEW: Hidden Dev Mode
     backpackTab: 'ITEMS' | 'TEAM';
     evolutionData: { prev: Pokemon, next: Pokemon } | null;
     evolutionQueue: { pokemon: Pokemon, target: PokedexEntry }[];
@@ -31,12 +33,14 @@ interface GameStoreState {
     // Actions
     setGameState: (state: GameState, prevState?: GameState) => void;
     setPlayerName: (name: string) => void;
-    setPlayerAvatar: (url: string) => void; // NEW
+    setPlayerAvatar: (url: string) => void; 
+    setCurrentSlotId: (slotId: number) => void; // NEW Action
     setSelectedTopic: (topic: MathTopic) => void;
     setIsMuted: (muted: boolean) => void;
     setIsDebugOpen: (open: boolean) => void;
     setUiDebuggerOpen: (open: boolean) => void;
-    setEventEditorOpen: (open: boolean) => void; // NEW Action
+    setEventEditorOpen: (open: boolean) => void;
+    setDebugModeEnabled: (enabled: boolean) => void; // NEW Action
     setBackpackTab: (tab: 'ITEMS' | 'TEAM') => void;
     setEvolutionData: (data: { prev: Pokemon, next: Pokemon } | null) => void;
     queueEvolutions: (evolutions: { pokemon: Pokemon, target: PokedexEntry }[]) => void;
@@ -67,12 +71,14 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     gameState: GameState.MENU_MAIN,
     prevState: GameState.MENU_MAIN,
     playerName: '',
-    playerAvatar: 'https://play.pokemonshowdown.com/sprites/trainers/red.png', // Default
+    playerAvatar: 'https://play.pokemonshowdown.com/sprites/trainers/red.png',
+    currentSlotId: 1, // Default to slot 1
     selectedTopic: 'linear',
     isMuted: false,
     isDebugOpen: false,
     isUiDebuggerOpen: false,
-    isEventEditorOpen: false, // Default closed
+    isEventEditorOpen: false, 
+    debugModeEnabled: false, // Default locked
     backpackTab: 'ITEMS',
     evolutionData: null,
     evolutionQueue: [],
@@ -93,11 +99,13 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     })),
     setPlayerName: (name) => set({ playerName: name }),
     setPlayerAvatar: (url) => set({ playerAvatar: url }),
+    setCurrentSlotId: (slotId) => set({ currentSlotId: slotId }),
     setSelectedTopic: (topic) => set({ selectedTopic: topic }),
     setIsMuted: (muted) => set({ isMuted: muted }),
     setIsDebugOpen: (open) => set({ isDebugOpen: open }),
     setUiDebuggerOpen: (open) => set({ isUiDebuggerOpen: open }),
     setEventEditorOpen: (open) => set({ isEventEditorOpen: open }),
+    setDebugModeEnabled: (enabled) => set({ debugModeEnabled: enabled }),
     setBackpackTab: (tab) => set({ backpackTab: tab }),
     setEvolutionData: (data) => set({ evolutionData: data }),
     queueEvolutions: (evolutions) => set(state => ({ evolutionQueue: [...state.evolutionQueue, ...evolutions] })),
@@ -158,7 +166,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         evolutionQueue: [],
         evolutionData: null,
         isUiDebuggerOpen: false,
-        isEventEditorOpen: false
+        isEventEditorOpen: false,
+        // Do NOT reset debugModeEnabled here so it persists through resets
     }),
 
     loadGameState: (data) => {

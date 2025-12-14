@@ -6,13 +6,14 @@ import { useBattleStore } from '../../store/useBattleStore';
 import { peerService } from '../peerService';
 import { audioService } from '../audioService';
 import { showToast } from '../../store/useToastStore';
+import { POKEDEX_REGISTRY } from '../../data/pokedexData';
 
 export const multiplayer = {
     // 1. Initial Handshake & Sync
     handleIncomingMessage: (msg: PeerMessage, senderId: string) => {
-        const { setPeerOpponent, setIsMyTurn, setBattleMessage, setAttackAnim, setDamageAnim, setEnemyPokemon, peerOpponent, isMultiplayer } = useBattleStore.getState();
-        const { setGameState, gameState } = useGameStore.getState();
-        const { playerPokemon, setPlayerPokemon } = usePlayerStore.getState();
+        const { setPeerOpponent, setIsMyTurn, setBattleMessage, setAttackAnim, setDamageAnim, setEnemyPokemon, peerOpponent, isMultiplayer, setPeerTradeOffer, setIsPeerTradeConfirmed, isTradeConfirmed, tradeOffer, resetTradeState } = useBattleStore.getState();
+        const { setGameState, gameState, queueEvolutions } = useGameStore.getState();
+        const { playerPokemon, setPlayerPokemon, tradePokemon } = usePlayerStore.getState();
 
         switch (msg.type) {
             case 'SYNC_TEAM':
@@ -39,11 +40,7 @@ export const multiplayer = {
             case 'BATTLE_INIT':
                 // Start Battle!
                 const { seed, firstPlayerId } = msg.payload;
-                const isMine = firstPlayerId === peerService['myId']; // Accessing internal ID via singleton prop if exposed, or pass it
-                // Actually peerService doesn't expose myId publicly easily, 
-                // so we rely on the payload telling us who goes first based on ID comparison logic done by host.
-                
-                // Set Up Battle State
+                const isMine = firstPlayerId === peerService['myId']; 
                 const opponent = useBattleStore.getState().peerOpponent;
                 if (!opponent || !opponent.team.length) {
                     showToast("Error: Opponent data missing!", "error");
@@ -119,9 +116,44 @@ export const multiplayer = {
                 break;
                 
             case 'BATTLE_WIN':
-                // Opponent admitted defeat (or I won)
                 setGameState(GameState.VICTORY_CAUGHT);
                 showToast("You Won!", "success");
+                break;
+
+            // --- TRADE LOGIC ---
+            case 'TRADE_REQUEST':
+                // Handled in MultiplayerMenu UI
+                audioService.playSfx('start');
+                break;
+
+            case 'TRADE_RESPONSE':
+                if (msg.payload.accepted) {
+                    resetTradeState();
+                    setGameState(GameState.MULTIPLAYER_TRADE);
+                    audioService.playSfx('correct');
+                } else {
+                    showToast("Trade declined.", "error");
+                }
+                break;
+
+            case 'TRADE_OFFER':
+                setPeerTradeOffer(msg.payload.pokemon);
+                setIsPeerTradeConfirmed(false); // Reset peer confirm if they change offer
+                break;
+
+            case 'TRADE_CONFIRM':
+                setIsPeerTradeConfirmed(true);
+                
+                // If I am also confirmed, EXECUTE
+                if (useBattleStore.getState().isTradeConfirmed) {
+                    multiplayer.executeTrade(tradeOffer!, msg.payload.offer);
+                }
+                break;
+
+            case 'TRADE_CANCEL':
+                setGameState(GameState.MENU_MULTIPLAYER);
+                resetTradeState();
+                showToast("Trade Cancelled", "info");
                 break;
         }
     },
@@ -132,21 +164,11 @@ export const multiplayer = {
     },
 
     acceptChallenge: (myId: string, opponentId: string) => {
-        // Determine who goes first (simple string comparison for consistency)
         const firstPlayerId = myId > opponentId ? myId : opponentId;
         const seed = Math.random();
-
         const payload = { accepted: true, seed, firstPlayerId };
-        
-        // Send acceptance
         peerService.send({ type: 'CHALLENGE_RESPONSE', payload });
-        
-        // Start Local immediately
         multiplayer.startBattleLocal(seed, firstPlayerId === myId);
-        
-        // Also send START signal to be safe/explicit? 
-        // Actually RESPONSE with payload is enough for the other side to start.
-        // But let's send a specific INIT to be clean.
         setTimeout(() => {
             peerService.send({ type: 'BATTLE_INIT', payload: { seed, firstPlayerId } });
         }, 500);
@@ -190,5 +212,68 @@ export const multiplayer = {
         useBattleStore.getState().setIsMyTurn(false);
         useBattleStore.getState().setBattleMessage("Opponent's Turn...");
         peerService.send({ type: 'TURN_END', payload: {} });
+    },
+
+    // --- TRADE ACTIONS ---
+    sendTradeRequest: () => {
+        peerService.send({ type: 'TRADE_REQUEST', payload: {} });
+    },
+
+    acceptTradeRequest: () => {
+        const { resetTradeState } = useBattleStore.getState();
+        peerService.send({ type: 'TRADE_RESPONSE', payload: { accepted: true } });
+        resetTradeState();
+        useGameStore.getState().setGameState(GameState.MULTIPLAYER_TRADE);
+    },
+
+    sendTradeOffer: (pokemon: Pokemon) => {
+        const { setTradeOffer, setIsTradeConfirmed } = useBattleStore.getState();
+        setTradeOffer(pokemon);
+        setIsTradeConfirmed(false); // Reset confirm if changing
+        peerService.send({ type: 'TRADE_OFFER', payload: { pokemon } });
+    },
+
+    confirmTrade: () => {
+        const { setIsTradeConfirmed, tradeOffer, isPeerTradeConfirmed, peerTradeOffer } = useBattleStore.getState();
+        setIsTradeConfirmed(true);
+        // Send MY offer in confirm payload just to be safe/atomic
+        peerService.send({ type: 'TRADE_CONFIRM', payload: { offer: tradeOffer } });
+
+        // If peer already confirmed, EXECUTE
+        if (isPeerTradeConfirmed && peerTradeOffer) {
+            multiplayer.executeTrade(tradeOffer!, peerTradeOffer);
+        }
+    },
+
+    cancelTrade: () => {
+        const { resetTradeState } = useBattleStore.getState();
+        peerService.send({ type: 'TRADE_CANCEL', payload: {} });
+        resetTradeState();
+        useGameStore.getState().setGameState(GameState.MENU_MULTIPLAYER);
+    },
+
+    executeTrade: (myMon: Pokemon, theirMon: Pokemon) => {
+        const { tradePokemon } = usePlayerStore.getState();
+        const { resetTradeState } = useBattleStore.getState();
+        const { setGameState, queueEvolutions } = useGameStore.getState();
+
+        // 1. Perform Swap
+        tradePokemon(myMon.id, theirMon);
+        audioService.playSfx('catch');
+        showToast(`Trade Successful! Received ${theirMon.name}!`, "success");
+
+        // 2. Check Evolution
+        const entry = POKEDEX_REGISTRY.find(p => p.speciesId === theirMon.speciesId);
+        if (entry && entry.evolvesTo && entry.evolutionReq?.method === 'trade') {
+            const nextEntry = POKEDEX_REGISTRY.find(e => e.speciesId === entry.evolvesTo);
+            if (nextEntry) {
+                // Queue evolution
+                queueEvolutions([{ pokemon: theirMon, target: nextEntry }]);
+            }
+        }
+
+        // 3. Reset UI
+        resetTradeState();
+        setGameState(GameState.MENU_MULTIPLAYER);
     }
 };

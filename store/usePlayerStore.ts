@@ -43,6 +43,9 @@ interface PlayerStoreState {
     depositPokemon: (partyId: string) => void;
     withdrawPokemon: (storageId: string) => void;
     
+    // TRADE ACTIONS
+    tradePokemon: (myPokemonId: string, newPokemon: Pokemon) => void;
+    
     // Load/Save Logic
     loadPlayerState: (data: SaveData) => void;
 }
@@ -164,6 +167,29 @@ export const usePlayerStore = create<PlayerStoreState>((set, get) => ({
             storagePokemon: state.storagePokemon.filter(x => x.id !== storageId),
             caughtPokemon: [...state.caughtPokemon, p]
         }));
+    },
+
+    tradePokemon: (myPokemonId: string, newPokemon: Pokemon) => {
+        const { caughtPokemon, playerPokemon } = get();
+        
+        // Find current and replace with new
+        const newParty = caughtPokemon.map(p => {
+            if (p.id === myPokemonId) {
+                return newPokemon;
+            }
+            return p;
+        });
+        
+        set({ caughtPokemon: newParty });
+        
+        // If active pokemon was traded, update it
+        if (playerPokemon && playerPokemon.id === myPokemonId) {
+            set({ playerPokemon: newPokemon });
+        }
+        
+        // Register the new one
+        get().registerSeen(newPokemon.speciesId);
+        get().registerCaught(newPokemon.speciesId);
     },
 
     loadPlayerState: (data) => {

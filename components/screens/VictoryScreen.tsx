@@ -79,12 +79,12 @@ export const VictoryScreen: React.FC = () => {
     }
 
     return (
-      <div className={`min-h-screen ${bgClass} flex flex-col items-center justify-center p-8 text-white text-center transition-colors duration-1000`}>
-           <h2 className={`text-5xl md:text-7xl font-pixel mb-8 animate-bounce ${titleColor}`}>{titleText}</h2>
+      <div className={`min-h-screen ${bgClass} flex flex-col items-center justify-center p-4 md:p-8 text-white text-center transition-colors duration-1000`}>
+           <h2 className={`text-4xl md:text-7xl font-pixel mb-6 md:mb-8 animate-bounce ${titleColor}`}>{titleText}</h2>
            
            {/* DUNGEON PROGRESS BAR (Hidden if Boss Victory) */}
            {activeQuest && !isDefeat && !isBossVictory && (
-                <div className="mb-6 w-full max-w-sm bg-black/40 p-4 rounded-xl border-2 border-yellow-500/50 backdrop-blur-sm shadow-lg animate-in slide-in-from-bottom-4">
+                <div className="mb-4 md:mb-6 w-full max-w-sm bg-black/40 p-3 md:p-4 rounded-xl border-2 border-yellow-500/50 backdrop-blur-sm shadow-lg animate-in slide-in-from-bottom-4">
                     <h3 className="text-yellow-400 font-bold font-pixel text-xs md:text-sm mb-2 uppercase tracking-widest flex justify-between">
                         <span>{activeQuest.bossSpeciesId === 250 ? "Bell Tower" : "Whirl Islands"}</span>
                         <span>Floor {activeQuest.currentProgress} / {activeQuest.requiredProgress}</span>
@@ -104,27 +104,27 @@ export const VictoryScreen: React.FC = () => {
            )}
 
            {enemyPokemon && !isDefeat && !lastRewards && (
-               <div className="mb-8">
-                   <p className="text-xl font-mono mb-4">You caught</p>
-                   <img src={enemyPokemon.imageUrl} className="w-40 h-40 mx-auto object-contain drop-shadow-2xl animate-float" />
-                   <p className="text-2xl font-bold uppercase mt-2">{enemyPokemon.name}</p>
+               <div className="mb-6 md:mb-8">
+                   <p className="text-lg md:text-xl font-mono mb-2 md:mb-4">You caught</p>
+                   <img src={enemyPokemon.imageUrl} className="w-32 h-32 md:w-40 md:h-40 mx-auto object-contain drop-shadow-2xl animate-float" />
+                   <p className="text-xl md:text-2xl font-bold uppercase mt-2">{enemyPokemon.name}</p>
                </div>
            )}
 
            {lastRewards && (
-               <div className="mb-8 bg-slate-800 p-6 rounded-xl border-4 border-yellow-500 shadow-2xl animate-pop-in w-full max-w-sm">
-                   <h3 className="text-xl font-bold text-yellow-400 mb-4 font-pixel uppercase tracking-widest">Rewards</h3>
-                   <div className="space-y-3">
-                       <div className="flex items-center justify-between p-3 bg-slate-700 rounded-lg">
-                           <span className="flex items-center gap-2 text-yellow-300 font-bold"><Coins /> Cash</span>
-                           <span className="text-2xl font-mono font-bold text-white">+${lastRewards.money}</span>
+               <div className="mb-6 md:mb-8 bg-slate-800 p-4 md:p-6 rounded-xl border-4 border-yellow-500 shadow-2xl animate-pop-in w-full max-w-sm">
+                   <h3 className="text-lg md:text-xl font-bold text-yellow-400 mb-3 md:mb-4 font-pixel uppercase tracking-widest">Rewards</h3>
+                   <div className="space-y-2 md:space-y-3">
+                       <div className="flex items-center justify-between p-2 md:p-3 bg-slate-700 rounded-lg">
+                           <span className="flex items-center gap-2 text-yellow-300 font-bold text-sm md:text-base"><Coins size={16} /> Cash</span>
+                           <span className="text-xl md:text-2xl font-mono font-bold text-white">+${lastRewards.money}</span>
                        </div>
                        {lastRewards.items.length > 0 && (
                            <div className="flex flex-col gap-2">
                                {lastRewards.items.map((item, i) => (
-                                   <div key={i} className="flex items-center justify-between p-3 bg-slate-700 rounded-lg border border-blue-500/30">
-                                       <span className="flex items-center gap-2 text-blue-300 font-bold"><Gift size={18}/> {ITEM_REGISTRY[item.itemId].name}</span>
-                                       <span className="font-mono font-bold text-white">x{item.count}</span>
+                                   <div key={i} className="flex items-center justify-between p-2 md:p-3 bg-slate-700 rounded-lg border border-blue-500/30">
+                                       <span className="flex items-center gap-2 text-blue-300 font-bold text-sm md:text-base"><Gift size={16}/> {ITEM_REGISTRY[item.itemId].name}</span>
+                                       <span className="font-mono font-bold text-white text-sm md:text-base">x{item.count}</span>
                                    </div>
                                ))}
                            </div>
@@ -134,22 +134,22 @@ export const VictoryScreen: React.FC = () => {
            )}
 
            {!lastRewards && !activeQuest && (
-               <div className="bg-black/30 p-6 rounded-xl backdrop-blur-sm max-w-md w-full mb-8 border border-white/10">
-                   {isFainted && <p className="text-lg font-bold text-red-300">Your Pokemon fainted!</p>}
-                   {isEscaped && <p className="text-lg font-bold text-orange-200">The wild {enemyPokemon?.name} ran away!</p>}
+               <div className="bg-black/30 p-4 md:p-6 rounded-xl backdrop-blur-sm max-w-md w-full mb-6 md:mb-8 border border-white/10">
+                   {isFainted && <p className="text-base md:text-lg font-bold text-red-300">Your Pokemon fainted!</p>}
+                   {isEscaped && <p className="text-base md:text-lg font-bold text-orange-200">The wild {enemyPokemon?.name} ran away!</p>}
                    {!isDefeat && (
                        <div className="flex justify-around text-center">
                            <div>
                                <p className="text-xs uppercase opacity-75 mb-1">Streak</p>
-                               <p className="text-3xl font-pixel text-yellow-400">{streak}</p>
+                               <p className="text-2xl md:text-3xl font-pixel text-yellow-400">{streak}</p>
                            </div>
                        </div>
                    )}
                </div>
            )}
 
-           <div className="flex flex-col gap-4 w-full max-w-xs z-10">
-               <button onClick={() => { audioService.playSfx('click'); onContinue(); }} className="py-4 bg-white text-black font-bold rounded-xl shadow-xl hover:scale-105 transition-transform text-lg flex items-center justify-center gap-2">
+           <div className="flex flex-col gap-3 md:gap-4 w-full max-w-xs z-10">
+               <button onClick={() => { audioService.playSfx('click'); onContinue(); }} className="py-3 md:py-4 bg-white text-black font-bold rounded-xl shadow-xl hover:scale-105 transition-transform text-base md:text-lg flex items-center justify-center gap-2">
                    {isFainted ? 'RECOVER & RETURN' : 
                         (isBossVictory ? 'LEAVE DUNGEON' : 
                             (activeQuest ? 'ASCEND NEXT FLOOR' : 'CONTINUE JOURNEY')
@@ -158,8 +158,8 @@ export const VictoryScreen: React.FC = () => {
                    {activeQuest && !isBossVictory && <ArrowUp size={20} className="animate-bounce" />}
                    {isBossVictory && <Flag size={20} />}
                </button>
-               <button onClick={() => { audioService.playSfx('click'); onOpenBackpack(); }} className="py-3 bg-black/40 text-white font-bold rounded-xl hover:bg-black/60 transition-colors flex items-center justify-center gap-2">
-                   <Backpack /> OPEN BACKPACK
+               <button onClick={() => { audioService.playSfx('click'); onOpenBackpack(); }} className="py-3 bg-black/40 text-white font-bold rounded-xl hover:bg-black/60 transition-colors flex items-center justify-center gap-2 text-sm md:text-base">
+                   <Backpack size={18} /> OPEN BACKPACK
                </button>
            </div>
       </div>

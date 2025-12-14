@@ -8,7 +8,7 @@ import { useGameStore } from '../../store/useGameStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useBattleStore } from '../../store/useBattleStore';
 import { showToast } from '../../store/useToastStore';
-import { ArrowLeft, Copy, Wifi, CheckCircle, Loader2, Sword, Smartphone } from 'lucide-react';
+import { ArrowLeft, Copy, Wifi, CheckCircle, Loader2, Sword, Smartphone, ArrowRightLeft } from 'lucide-react';
 import { TrainerCard } from '../TrainerCard';
 
 export const MultiplayerMenu: React.FC = () => {
@@ -19,13 +19,11 @@ export const MultiplayerMenu: React.FC = () => {
   const [myPeerId, setMyPeerId] = useState<string>('...');
   const [targetId, setTargetId] = useState('');
   
-  // Use a ref to keep track of targetId inside the peerService callback
-  const targetIdRef = useRef(''); 
-
   const [status, setStatus] = useState<PeerStatus>('CONNECTING');
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [statusMsg, setStatusMsg] = useState('Initializing...');
   const [isChallengeReceived, setIsChallengeReceived] = useState(false);
+  const [isTradeReceived, setIsTradeReceived] = useState(false);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
 
   const onBack = () => {
@@ -39,7 +37,8 @@ export const MultiplayerMenu: React.FC = () => {
     peerService.init(
       (id) => setMyPeerId(id),
       (s, m) => { setStatus(s); if (m) setStatusMsg(m); },
-      (data: PeerMessage) => {
+      // UPDATED: Now receives the actual senderId from the service
+      (data: PeerMessage, senderId: string) => {
          if (data.type === 'CHALLENGE_REQUEST') {
              audioService.playSfx('start');
              setIsChallengeReceived(true);
@@ -48,22 +47,32 @@ export const MultiplayerMenu: React.FC = () => {
              if (data.payload.accepted) {
                  showToast("Challenge Accepted!", "success");
                  if (data.payload.seed) {
-                     // Determine if I am player 1 based on payload
-                     // Note: We rely on the logic inside multiplayer.ts to actually start the battle state
-                     // Here we just ensure we pass the correct params if needed, or multiplayer.ts handles it via closures/state
-                     multiplayer.acceptChallenge(peerService['myId'] || myPeerId, peerOpponent?.id || 'unknown');
-                     // Actually, if we received RESPONSE, it means WE sent the REQUEST.
-                     // The payload from the opponent contains the seed.
-                     // We need to start local battle with that seed.
-                     const isFirst = data.payload.firstPlayerId === (peerService['myId'] || myPeerId);
+                     // Pass my ID explicitly
+                     multiplayer.acceptChallenge(peerService.myId, senderId);
+                     
+                     // Determine start based on seed from payload
+                     const isFirst = data.payload.firstPlayerId === peerService.myId;
                      multiplayer.startBattleLocal(data.payload.seed, isFirst);
                  }
              } else {
                  showToast("Challenge Declined.", "error");
              }
+         } else if (data.type === 'TRADE_REQUEST') {
+             audioService.playSfx('start');
+             setIsTradeReceived(true);
+         } else if (data.type === 'TRADE_RESPONSE') {
+             setIsWaitingForResponse(false);
+             if (data.payload.accepted) {
+                 showToast("Trade Accepted!", "success");
+                 // Reset Trade State & Enter Screen
+                 useBattleStore.getState().resetTradeState();
+                 useGameStore.getState().setGameState(GameState.MULTIPLAYER_TRADE);
+             } else {
+                 showToast("Trade Declined.", "error");
+             }
          } else {
-             // General handler
-             multiplayer.handleIncomingMessage(data, targetIdRef.current); 
+             // General handler - Pass the REAL senderId, not the input box ref
+             multiplayer.handleIncomingMessage(data, senderId); 
          }
       }
     );
@@ -113,12 +122,17 @@ export const MultiplayerMenu: React.FC = () => {
       multiplayer.sendChallenge();
   };
 
+  const handleTradeClick = () => {
+      if (!peerService.isConnected()) return;
+      audioService.playSfx('click');
+      setIsWaitingForResponse(true);
+      multiplayer.sendTradeRequest();
+  };
+
   const respondToChallenge = (accepted: boolean) => {
       setIsChallengeReceived(false);
       if (accepted) {
           audioService.playSfx('correct');
-          // myPeerId might be empty string in initial render, but should be set by now.
-          // Fallback to what we have in state.
           multiplayer.acceptChallenge(myPeerId, peerOpponent?.id || 'unknown');
       } else {
           audioService.playSfx('run');
@@ -126,10 +140,20 @@ export const MultiplayerMenu: React.FC = () => {
       }
   };
 
+  const respondToTrade = (accepted: boolean) => {
+      setIsTradeReceived(false);
+      if (accepted) {
+          audioService.playSfx('correct');
+          multiplayer.acceptTradeRequest();
+      } else {
+          audioService.playSfx('run');
+          peerService.send({ type: 'TRADE_RESPONSE', payload: { accepted: false } });
+      }
+  };
+
   const handleTargetIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const val = e.target.value;
       setTargetId(val);
-      targetIdRef.current = val; // Sync ref
   };
 
   return (
@@ -145,6 +169,22 @@ export const MultiplayerMenu: React.FC = () => {
                     <div className="flex gap-4">
                         <button onClick={() => respondToChallenge(false)} className="flex-1 py-3 bg-slate-600 hover:bg-slate-500 rounded font-bold text-white border-b-4 border-slate-800">DECLINE</button>
                         <button onClick={() => respondToChallenge(true)} className="flex-1 py-3 bg-green-600 hover:bg-green-500 rounded font-bold text-white border-b-4 border-green-800">ACCEPT</button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Modal: Incoming Trade */}
+        {isTradeReceived && (
+            <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center p-4 animate-in fade-in zoom-in-95">
+                <div className="bg-slate-800 border-4 border-blue-500 rounded-xl p-6 max-w-sm w-full text-center shadow-2xl relative overflow-hidden">
+                    <div className="absolute inset-0 bg-blue-500/10 animate-pulse"></div>
+                    <ArrowRightLeft size={48} className="mx-auto text-blue-400 mb-4 animate-spin-slow" />
+                    <h3 className="text-2xl font-pixel text-white mb-2">TRADE OFFER!</h3>
+                    <p className="text-slate-300 mb-6"><span className="text-blue-400 font-bold">{peerOpponent?.name || 'Unknown'}</span> wants to trade!</p>
+                    <div className="flex gap-4">
+                        <button onClick={() => respondToTrade(false)} className="flex-1 py-3 bg-slate-600 hover:bg-slate-500 rounded font-bold text-white border-b-4 border-slate-800">DECLINE</button>
+                        <button onClick={() => respondToTrade(true)} className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded font-bold text-white border-b-4 border-blue-800">ACCEPT</button>
                     </div>
                 </div>
             </div>
@@ -236,16 +276,27 @@ export const MultiplayerMenu: React.FC = () => {
                             </div>
 
                             {/* Actions */}
-                            <button 
-                                onClick={sendChallenge}
-                                disabled={isWaitingForResponse}
-                                className={`w-full py-4 font-bold rounded-xl border-b-4 active:border-b-0 active:translate-y-1 transition-all flex items-center justify-center gap-2 mt-auto
-                                    ${isWaitingForResponse 
-                                        ? 'bg-yellow-600 border-yellow-800 text-white animate-pulse cursor-wait' 
-                                        : 'bg-red-600 hover:bg-red-500 text-white border-red-800 shadow-lg'}`}
-                            >
-                                {isWaitingForResponse ? <><Loader2 className="animate-spin"/> WAITING...</> : <><Sword /> CHALLENGE</>}
-                            </button>
+                            <div className="mt-auto grid grid-cols-2 gap-3">
+                                <button 
+                                    onClick={sendChallenge}
+                                    disabled={isWaitingForResponse}
+                                    className={`py-4 font-bold rounded-xl border-b-4 active:border-b-0 active:translate-y-1 transition-all flex items-center justify-center gap-2
+                                        ${isWaitingForResponse 
+                                            ? 'bg-yellow-600 border-yellow-800 text-white animate-pulse cursor-wait col-span-2' 
+                                            : 'bg-red-600 hover:bg-red-500 text-white border-red-800 shadow-lg'}`}
+                                >
+                                    {isWaitingForResponse ? <><Loader2 className="animate-spin"/> WAITING...</> : <><Sword /> CHALLENGE</>}
+                                </button>
+                                
+                                {!isWaitingForResponse && (
+                                    <button 
+                                        onClick={handleTradeClick}
+                                        className="py-4 font-bold rounded-xl border-b-4 active:border-b-0 active:translate-y-1 transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white border-blue-800 shadow-lg"
+                                    >
+                                        <ArrowRightLeft /> TRADE
+                                    </button>
+                                )}
+                            </div>
                         </>
                     ) : (
                         // CONNECT FORM

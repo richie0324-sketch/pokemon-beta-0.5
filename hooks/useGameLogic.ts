@@ -37,31 +37,63 @@ export const logic = {
 // Kept in this file as it needs React lifecycle
 const useStoreSubscriber = () => {
     const returnStateRef = useRef<GameState>(GameState.MENU_MAIN);
+    const timerRef = useRef<number | null>(null);
 
     // Battle Timer Effect
     useEffect(() => {
-        let interval: number;
-        const unsubscribe = useBattleStore.subscribe(state => {
-            clearInterval(interval);
+        const checkTimer = () => {
             const { gameState, activeBuffs } = useGameStore.getState();
-            
-            // LAG SWITCH LOGIC: If 'lag_switch' buff is active, do not decrement timer
-            if (activeBuffs['lag_switch'] && activeBuffs['lag_switch'] > 0) return;
+            const { isTrainerBattle, battleTimer, battleMessage } = useBattleStore.getState();
 
-            if (gameState === GameState.BATTLE_COMBAT && state.isTrainerBattle && state.battleTimer !== null && state.battleTimer > 0 && !state.battleMessage) {
-                interval = window.setInterval(() => {
-                    const currentTimer = useBattleStore.getState().battleTimer;
-                    if (currentTimer !== null && currentTimer > 0) {
-                        useBattleStore.getState().setBattleTimer(currentTimer - 1);
-                    } else if (currentTimer === 0) {
-                        logic.handleTimerExpiry();
-                    }
-                }, 1000);
-            } else if (state.battleTimer === 0) {
-                logic.handleTimerExpiry();
+            // Determine if the timer SHOULD be running
+            const shouldRun = 
+                gameState === GameState.BATTLE_COMBAT &&
+                isTrainerBattle &&
+                battleTimer !== null &&
+                battleTimer > 0 &&
+                !battleMessage &&
+                (!activeBuffs['lag_switch'] || activeBuffs['lag_switch'] <= 0);
+
+            if (shouldRun) {
+                // If it should run but isn't running, start it
+                if (!timerRef.current) {
+                    timerRef.current = window.setInterval(() => {
+                        const current = useBattleStore.getState().battleTimer;
+                        if (current !== null && current > 0) {
+                            useBattleStore.getState().setBattleTimer(current - 1);
+                        } else if (current === 0) {
+                            // If it hits 0, the next store update will catch it in the 'else' block below
+                            // but we can also force the check here to be precise
+                            logic.handleTimerExpiry();
+                        }
+                    }, 1000);
+                }
+            } else {
+                // If it shouldn't run but IS running, stop it
+                if (timerRef.current) {
+                    clearInterval(timerRef.current);
+                    timerRef.current = null;
+                }
+                
+                // Handle expiry case specifically (when timer hits 0)
+                if (battleTimer === 0) {
+                    logic.handleTimerExpiry();
+                }
             }
-        });
-        return () => { clearInterval(interval); unsubscribe(); };
+        };
+
+        // Subscribe to BOTH stores to ensure we catch Pause/Resume AND Battle Events
+        const unsubBattle = useBattleStore.subscribe(checkTimer);
+        const unsubGame = useGameStore.subscribe(checkTimer);
+
+        // Initial Check
+        checkTimer();
+
+        return () => {
+            if (timerRef.current) clearInterval(timerRef.current);
+            unsubBattle();
+            unsubGame();
+        };
     }, []);
 
     const processNextEvolution = () => {

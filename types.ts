@@ -295,6 +295,7 @@ export enum GameState {
   MENU_STARTER_SELECT = 'MENU_STARTER_SELECT',
   MENU_MULTIPLAYER = 'MENU_MULTIPLAYER', 
   MULTIPLAYER_BATTLE = 'MULTIPLAYER_BATTLE', // New State for P2P Battles
+  MULTIPLAYER_TRADE = 'MULTIPLAYER_TRADE', // NEW: Trade Screen
   
   WILD_ENCOUNTER = 'WILD_ENCOUNTER',
   TRAINER_INTRO = 'TRAINER_INTRO', // New: VS Screen
@@ -321,13 +322,13 @@ export enum GameState {
 
 export interface SaveData {
   playerName: string;
-  playerAvatar?: string; // NEW: Stores the sprite URL
-  trainerId: string; // NEW: Persistent ID
-  badges: string[]; // NEW: Collected Badges
+  playerAvatar?: string; 
+  trainerId: string; 
+  badges: string[]; 
   selectedTopic: MathTopic;
   playerPokemon: Pokemon;
-  caughtPokemon: Pokemon[]; // The Party (Max 6)
-  storagePokemon: Pokemon[]; // New: The PC
+  caughtPokemon: Pokemon[]; 
+  storagePokemon: Pokemon[]; 
   seenSpeciesIds?: number[];
   caughtHistory?: number[]; 
   inventory: InventorySlot[]; 
@@ -335,13 +336,23 @@ export interface SaveData {
   streak: number;
   targetStreak: number; 
   saveDate: number;
-  defeatedTrainers?: string[]; // Track unique trainers beaten
-  unlockedAchievements?: Record<string, number>; // New: Achievements
+  defeatedTrainers?: string[]; 
+  unlockedAchievements?: Record<string, number>;
   
   // New Fields for Persistence
   activeBuffs?: Record<string, number>;
   activeQuest?: QuestState | null;
   activeField?: FieldTerrain;
+}
+
+export interface SaveMetadata {
+    slotId: number;
+    isEmpty: boolean;
+    playerName?: string;
+    badges?: number;
+    money?: number;
+    playTime?: number; // timestamp
+    avatar?: string;
 }
 
 // --- MULTIPLAYER PROTOCOL ---
@@ -354,7 +365,12 @@ export type PeerMessageType =
     | 'BATTLE_MOVE'      // { type: 'ATTACK' | 'MISS' | 'SWITCH', damage?: number, switchId?: string, name?: string }
     | 'TURN_END'         // Transfer control
     | 'BATTLE_WIN'       // I won (you lost)
-    | 'TRADE_OFFER';
+    // TRADE MESSAGES
+    | 'TRADE_REQUEST'    // Ask to trade
+    | 'TRADE_RESPONSE'   // Accept/Decline request
+    | 'TRADE_OFFER'      // Send selected pokemon
+    | 'TRADE_CONFIRM'    // Lock in trade
+    | 'TRADE_CANCEL';    // Exit trade
 
 export interface PeerMessage {
     type: PeerMessageType;

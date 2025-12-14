@@ -34,6 +34,12 @@ interface BattleStoreState {
     isMyTurn: boolean; // Controls UI Lock
     peerOpponent: PeerOpponent | null;
 
+    // TRADE STATE
+    tradeOffer: Pokemon | null;
+    peerTradeOffer: Pokemon | null;
+    isTradeConfirmed: boolean;
+    isPeerTradeConfirmed: boolean;
+
     battleModifiers: { atk: number; def: number };
     preppedBall: { id: string; multiplier: number } | null;
     isMasterBallActive: boolean;
@@ -64,6 +70,13 @@ interface BattleStoreState {
     setIsMultiplayer: (isMulti: boolean) => void;
     setIsMyTurn: (isMyTurn: boolean) => void;
 
+    // Trade Actions
+    setTradeOffer: (p: Pokemon | null) => void;
+    setPeerTradeOffer: (p: Pokemon | null) => void;
+    setIsTradeConfirmed: (v: boolean) => void;
+    setIsPeerTradeConfirmed: (v: boolean) => void;
+    resetTradeState: () => void;
+
     startWildEncounter: (enemy: Pokemon) => void;
     startTrainerBattle: (trainer: Trainer, team: Pokemon[]) => void;
     nextTrainerPokemon: () => void;
@@ -93,6 +106,11 @@ const initialBattleState = {
     isMultiplayer: false,
     isMyTurn: true,
     peerOpponent: null,
+    
+    tradeOffer: null,
+    peerTradeOffer: null,
+    isTradeConfirmed: false,
+    isPeerTradeConfirmed: false,
 };
 
 export const useBattleStore = create<BattleStoreState>((set, get) => ({
@@ -128,6 +146,17 @@ export const useBattleStore = create<BattleStoreState>((set, get) => ({
     setPeerOpponent: (opponent) => set({ peerOpponent: opponent }),
     setIsMultiplayer: (isMulti) => set({ isMultiplayer: isMulti }),
     setIsMyTurn: (isMyTurn) => set({ isMyTurn }),
+
+    setTradeOffer: (p) => set({ tradeOffer: p }),
+    setPeerTradeOffer: (p) => set({ peerTradeOffer: p }),
+    setIsTradeConfirmed: (v) => set({ isTradeConfirmed: v }),
+    setIsPeerTradeConfirmed: (v) => set({ isPeerTradeConfirmed: v }),
+    resetTradeState: () => set({
+        tradeOffer: null,
+        peerTradeOffer: null,
+        isTradeConfirmed: false,
+        isPeerTradeConfirmed: false,
+    }),
 
     startWildEncounter: (enemy) => {
         get().resetBattleState();
