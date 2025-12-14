@@ -359,11 +359,12 @@ export interface SaveMetadata {
 export type PeerMessageType = 
     | 'HANDSHAKE' 
     | 'SYNC_TEAM'
+    | 'HEARTBEAT' // NEW: Connection check
     | 'CHALLENGE_REQUEST'
     | 'CHALLENGE_RESPONSE'
-    | 'BATTLE_INIT'      // { seed: number, firstPlayerId: string }
-    | 'BATTLE_MOVE'      // { type: 'ATTACK' | 'MISS' | 'SWITCH', damage?: number, switchId?: string, name?: string }
-    | 'TURN_END'         // Transfer control
+    | 'BATTLE_INIT'      // { seed: number, firstPlayerId: string, difficulty: Difficulty }
+    | 'BATTLE_MOVE'      // { type: 'ATTACK' | 'MISS' | 'SWITCH', damage?: number, turnNumber: number, switchId?: string }
+    | 'TURN_END'         // { turnNumber: number }
     | 'BATTLE_WIN'       // I won (you lost)
     // TRADE MESSAGES
     | 'TRADE_REQUEST'    // Ask to trade

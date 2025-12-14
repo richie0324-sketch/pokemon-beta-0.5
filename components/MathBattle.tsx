@@ -10,11 +10,11 @@ import { logic } from '../hooks/useGameLogic';
 import { multiplayer } from '../services/gameLogic/multiplayer'; // Import MP logic
 import { Loader2, ArrowRight, XCircle, HelpCircle, ChevronRight, Lock } from 'lucide-react';
 import { MathText } from './MathText';
+import { calculateDamage } from '../services/battleMechanics';
 
 const MathBattle: React.FC = () => {
   const playerPokemon = usePlayerStore(state => state.playerPokemon);
-  // Added isMultiplayer and isMyTurn
-  const { enemyPokemon, battleMessage, questionSeed, isTrainerBattle, setBattleTimer, isMultiplayer, isMyTurn } = useBattleStore(useShallow(state => ({
+  const { enemyPokemon, battleMessage, questionSeed, isTrainerBattle, setBattleTimer, isMultiplayer, isMyTurn, battleModifiers } = useBattleStore(useShallow(state => ({
       enemyPokemon: state.enemyPokemon,
       battleMessage: state.battleMessage,
       questionSeed: state.questionSeed,
@@ -22,6 +22,7 @@ const MathBattle: React.FC = () => {
       setBattleTimer: state.setBattleTimer,
       isMultiplayer: state.isMultiplayer,
       isMyTurn: state.isMyTurn,
+      battleModifiers: state.battleModifiers
   })));
   const gameState = useGameStore(state => state.gameState);
   const selectedTopic = useGameStore(state => state.selectedTopic);
@@ -32,24 +33,15 @@ const MathBattle: React.FC = () => {
     return null;
   }
   
-  // Logic for correct/incorrect based on mode
   const handleCorrect = (coeff: number) => {
       if (isMultiplayer) {
-          // Calculate Damage Locally then send
-          const { battleModifiers } = useBattleStore.getState();
-          // Import calcs locally or replicate logic. 
-          // Reusing battleMechanics is best, but we need to ensure state is clean.
-          // For now, let's trust the standard logic. 
-          // We manually calculate dmg to send exact number.
+          // P2P Logic:
+          // 1. Calculate raw damage using MY Attack Buffs vs ENEMY Base Defense
+          // (Enemy defense buffs are unknown to me, so they are applied on receiver side)
           
-          // Hack: we call logic to calc damage but intercept it? 
-          // Or we modify logic.battles.handleDamageEnemy to support P2P? 
-          // Cleaner: Let's calculate manually here to send the packet.
-          // For this iteration, let's keep it simple: 
-          // 1. Calc damage (approx)
-          // 2. Send via multiplayer service
+          // Use calculateDamage but force Def Mult to 1.0 (receiver applies their own)
+          const { damage } = calculateDamage(playerPokemon, enemyPokemon, coeff, true, battleModifiers.atk, 1.0);
           
-          const damage = 25 * coeff; // Simplified MP damage for stability for now, or use real formula
           multiplayer.sendAttack(damage);
       } else {
           if (isCatchPhase) {
@@ -85,6 +77,8 @@ const MathBattle: React.FC = () => {
       enemyPokemon,
       topic: selectedTopic,
       isCatchPhase,
+      // For MP, questionSeed is synced via BATTLE_INIT. 
+      // Ensure useMathEngine actually uses it to generate consistent difficulty/questions.
       questionSeed,
       onQuestionLoaded: () => {
           if (isTrainerBattle) {

@@ -33,6 +33,7 @@ interface BattleStoreState {
     isMultiplayer: boolean;
     isMyTurn: boolean; // Controls UI Lock
     peerOpponent: PeerOpponent | null;
+    mpTurnNumber: number; // NEW: For syncing turn order/race conditions
 
     // TRADE STATE
     tradeOffer: Pokemon | null;
@@ -69,6 +70,7 @@ interface BattleStoreState {
     setPeerOpponent: (opponent: PeerOpponent | null) => void;
     setIsMultiplayer: (isMulti: boolean) => void;
     setIsMyTurn: (isMyTurn: boolean) => void;
+    setMpTurnNumber: (n: number) => void; // NEW
 
     // Trade Actions
     setTradeOffer: (p: Pokemon | null) => void;
@@ -106,6 +108,7 @@ const initialBattleState = {
     isMultiplayer: false,
     isMyTurn: true,
     peerOpponent: null,
+    mpTurnNumber: 0,
     
     tradeOffer: null,
     peerTradeOffer: null,
@@ -120,10 +123,8 @@ export const useBattleStore = create<BattleStoreState>((set, get) => ({
 
     setEnemyPokemon: (pokemon) => set({ enemyPokemon: pokemon }),
     
-    // Updated setStreak to update targetStreak based on next multiple of 5
     setStreak: (updater) => set(state => {
         const newStreak = updater(state.streak);
-        // Calculate next milestone (every 5 levels is a trainer)
         const newTarget = (Math.floor(newStreak / 5) + 1) * 5;
         return { 
             streak: newStreak, 
@@ -144,8 +145,9 @@ export const useBattleStore = create<BattleStoreState>((set, get) => ({
     setIsMasterBallActive: (isActive) => set({ isMasterBallActive: isActive }),
 
     setPeerOpponent: (opponent) => set({ peerOpponent: opponent }),
-    setIsMultiplayer: (isMulti) => set({ isMultiplayer: isMulti }),
-    setIsMyTurn: (isMyTurn) => set({ isMyTurn }),
+    setIsMultiplayer: (isMulti: boolean) => set({ isMultiplayer: isMulti }),
+    setIsMyTurn: (isMyTurn: boolean) => set({ isMyTurn }),
+    setMpTurnNumber: (n: number) => set({ mpTurnNumber: n }),
 
     setTradeOffer: (p) => set({ tradeOffer: p }),
     setPeerTradeOffer: (p) => set({ peerTradeOffer: p }),
@@ -198,10 +200,11 @@ export const useBattleStore = create<BattleStoreState>((set, get) => ({
     endBattle: () => {
         set({ 
             isTrainerBattle: false, 
-            isMultiplayer: false, // Reset multiplayer flag
+            isMultiplayer: false,
             currentTrainer: null, 
             enemyTeam: [], 
-            battleTimer: null 
+            battleTimer: null,
+            mpTurnNumber: 0
         });
     },
     

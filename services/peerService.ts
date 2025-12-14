@@ -8,34 +8,33 @@ export type { PeerMessage };
 class PeerService {
     private peer: Peer | null = null;
     private conn: DataConnection | null = null;
-    public myId: string = ''; // Made public for easier access if needed
+    public myId: string = ''; 
+    private heartbeatInterval: number | null = null;
+    private lastHeartbeat: number = 0;
     
     // Callbacks
     private onStatusChange: ((status: PeerStatus, msg?: string) => void) | null = null;
-    // UPDATED: Now provides the sender's Peer ID alongside the data
     private onDataReceived: ((data: PeerMessage, peerId: string) => void) | null = null;
 
     constructor() {
-        // Singleton pattern handled by export
+        // Singleton
     }
 
-    // Initialize as Host or Guest (get an ID from PeerServer)
     init(onId: (id: string) => void, onStatus: (s: PeerStatus, m?: string) => void, onData: (d: PeerMessage, pid: string) => void) {
         this.onStatusChange = onStatus;
         this.onDataReceived = onData;
 
-        // Clean up previous
         if (this.peer) this.peer.destroy();
+        this.stopHeartbeat();
 
-        // Create Peer. 
         this.peer = new Peer();
 
-        this.onStatusChange('CONNECTING', 'Connecting to Global Server...');
+        this.onStatusChange('CONNECTING', 'Connecting to Server...');
 
         this.peer.on('open', (id) => {
             this.myId = id;
             onId(id);
-            this.onStatusChange?.('DISCONNECTED', 'Ready to Connect');
+            this.onStatusChange?.('DISCONNECTED', 'Ready');
         });
 
         this.peer.on('connection', (connection) => {
@@ -44,14 +43,13 @@ class PeerService {
 
         this.peer.on('error', (err) => {
             console.error("Peer Error", err);
-            this.onStatusChange?.('ERROR', err.message || 'Connection Error');
+            this.onStatusChange?.('ERROR', 'Connection Error: ' + err.type);
         });
     }
 
-    // Connect to another peer (Host)
     connectToPeer(hostId: string) {
         if (!this.peer) return;
-        this.onStatusChange?.('CONNECTING', `Dialing ${hostId}...`);
+        this.onStatusChange?.('CONNECTING', `Dialing...`);
         
         const conn = this.peer.connect(hostId);
         this.handleConnection(conn);
@@ -61,36 +59,66 @@ class PeerService {
         this.conn = conn;
 
         conn.on('open', () => {
-            this.onStatusChange?.('CONNECTED', `Connected to ${conn.peer}`);
+            this.onStatusChange?.('CONNECTED', `Connected`);
+            this.startHeartbeat();
         });
 
         conn.on('data', (data) => {
+            const msg = data as PeerMessage;
+            if (msg.type === 'HEARTBEAT') {
+                this.lastHeartbeat = Date.now();
+                return;
+            }
             if (this.onDataReceived) {
-                // PASS THE CONNECTION PEER ID CORRECTLY
-                this.onDataReceived(data as PeerMessage, conn.peer);
+                this.onDataReceived(msg, conn.peer);
             }
         });
 
         conn.on('close', () => {
             this.conn = null;
-            this.onStatusChange?.('DISCONNECTED', 'Connection Closed');
+            this.stopHeartbeat();
+            this.onStatusChange?.('DISCONNECTED', 'Disconnected');
         });
         
         conn.on('error', (err) => {
             console.error("Conn Error", err);
-            this.onStatusChange?.('ERROR', 'Connection Lost');
+            this.onStatusChange?.('ERROR', 'Connection Failed');
         });
+    }
+
+    private startHeartbeat() {
+        this.stopHeartbeat();
+        this.lastHeartbeat = Date.now();
+        this.heartbeatInterval = window.setInterval(() => {
+            if (this.conn && this.conn.open) {
+                this.conn.send({ type: 'HEARTBEAT', payload: {} });
+                
+                // Check if peer is dead (no heartbeat for 10s)
+                if (Date.now() - this.lastHeartbeat > 10000) {
+                    console.warn("Peer heartbeat lost");
+                    this.conn.close();
+                }
+            }
+        }, 2000);
+    }
+
+    private stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
     }
 
     send(msg: PeerMessage) {
         if (this.conn && this.conn.open) {
             this.conn.send(msg);
         } else {
-            console.warn("Cannot send, no connection");
+            console.warn("Cannot send, no connection open");
         }
     }
 
     disconnect() {
+        this.stopHeartbeat();
         if (this.conn) this.conn.close();
         if (this.peer) this.peer.destroy();
         this.peer = null;

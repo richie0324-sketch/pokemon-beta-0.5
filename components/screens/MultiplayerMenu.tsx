@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GameState } from '../../types';
 import { peerService, PeerStatus, PeerMessage } from '../../services/peerService';
 import { multiplayer } from '../../services/gameLogic/multiplayer';
@@ -18,13 +18,15 @@ export const MultiplayerMenu: React.FC = () => {
 
   const [myPeerId, setMyPeerId] = useState<string>('...');
   const [targetId, setTargetId] = useState('');
-  
   const [status, setStatus] = useState<PeerStatus>('CONNECTING');
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [statusMsg, setStatusMsg] = useState('Initializing...');
+  
+  // States for Modals
   const [isChallengeReceived, setIsChallengeReceived] = useState(false);
   const [isTradeReceived, setIsTradeReceived] = useState(false);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
+  
+  // Track who is calling us so we can reply
+  const [requestingPeerId, setRequestingPeerId] = useState<string | null>(null);
 
   const onBack = () => {
       audioService.playSfx('click');
@@ -36,42 +38,28 @@ export const MultiplayerMenu: React.FC = () => {
   useEffect(() => {
     peerService.init(
       (id) => setMyPeerId(id),
-      (s, m) => { setStatus(s); if (m) setStatusMsg(m); },
-      // UPDATED: Now receives the actual senderId from the service
+      (s, m) => { 
+          setStatus(s); 
+          if (s === 'ERROR' && m) showToast(m, 'error');
+      },
       (data: PeerMessage, senderId: string) => {
+         console.log("Received:", data.type, "from", senderId);
+         
          if (data.type === 'CHALLENGE_REQUEST') {
              audioService.playSfx('start');
+             setRequestingPeerId(senderId); // CAPTURE ID
              setIsChallengeReceived(true);
          } else if (data.type === 'CHALLENGE_RESPONSE') {
              setIsWaitingForResponse(false);
-             if (data.payload.accepted) {
-                 showToast("Challenge Accepted!", "success");
-                 if (data.payload.seed) {
-                     // Pass my ID explicitly
-                     multiplayer.acceptChallenge(peerService.myId, senderId);
-                     
-                     // Determine start based on seed from payload
-                     const isFirst = data.payload.firstPlayerId === peerService.myId;
-                     multiplayer.startBattleLocal(data.payload.seed, isFirst);
-                 }
-             } else {
-                 showToast("Challenge Declined.", "error");
-             }
+             multiplayer.handleIncomingMessage(data, senderId);
          } else if (data.type === 'TRADE_REQUEST') {
              audioService.playSfx('start');
+             setRequestingPeerId(senderId); // CAPTURE ID
              setIsTradeReceived(true);
          } else if (data.type === 'TRADE_RESPONSE') {
              setIsWaitingForResponse(false);
-             if (data.payload.accepted) {
-                 showToast("Trade Accepted!", "success");
-                 // Reset Trade State & Enter Screen
-                 useBattleStore.getState().resetTradeState();
-                 useGameStore.getState().setGameState(GameState.MULTIPLAYER_TRADE);
-             } else {
-                 showToast("Trade Declined.", "error");
-             }
+             multiplayer.handleIncomingMessage(data, senderId);
          } else {
-             // General handler - Pass the REAL senderId, not the input box ref
              multiplayer.handleIncomingMessage(data, senderId); 
          }
       }
@@ -112,11 +100,14 @@ export const MultiplayerMenu: React.FC = () => {
   const copyToClipboard = () => {
       navigator.clipboard.writeText(myPeerId);
       audioService.playSfx('click');
-      showToast("ID copied to clipboard!", "success");
+      showToast("ID copied!", "success");
   };
 
   const sendChallenge = () => {
-      if (!peerService.isConnected()) return;
+      if (!peerService.isConnected()) {
+          showToast("Not connected!", "error");
+          return;
+      }
       audioService.playSfx('click');
       setIsWaitingForResponse(true);
       multiplayer.sendChallenge();
@@ -130,30 +121,42 @@ export const MultiplayerMenu: React.FC = () => {
   };
 
   const respondToChallenge = (accepted: boolean) => {
-      setIsChallengeReceived(false);
-      if (accepted) {
-          audioService.playSfx('correct');
-          multiplayer.acceptChallenge(myPeerId, peerOpponent?.id || 'unknown');
-      } else {
-          audioService.playSfx('run');
-          peerService.send({ type: 'CHALLENGE_RESPONSE', payload: { accepted: false } });
+      try {
+          setIsChallengeReceived(false);
+          const target = requestingPeerId || peerOpponent?.id;
+          
+          if (!target) {
+              showToast("Error: Unknown opponent ID", "error");
+              return;
+          }
+          
+          if (accepted) {
+              audioService.playSfx('correct');
+              multiplayer.acceptChallenge(myPeerId, target);
+          } else {
+              audioService.playSfx('run');
+              peerService.send({ type: 'CHALLENGE_RESPONSE', payload: { accepted: false } });
+          }
+      } catch (e) {
+          console.error("Error responding to challenge:", e);
+          setIsChallengeReceived(false);
       }
   };
 
   const respondToTrade = (accepted: boolean) => {
-      setIsTradeReceived(false);
-      if (accepted) {
-          audioService.playSfx('correct');
-          multiplayer.acceptTradeRequest();
-      } else {
-          audioService.playSfx('run');
-          peerService.send({ type: 'TRADE_RESPONSE', payload: { accepted: false } });
+      try {
+          setIsTradeReceived(false);
+          if (accepted) {
+              audioService.playSfx('correct');
+              multiplayer.acceptTradeRequest();
+          } else {
+              audioService.playSfx('run');
+              peerService.send({ type: 'TRADE_RESPONSE', payload: { accepted: false } });
+          }
+      } catch (e) {
+          console.error("Error responding to trade:", e);
+          setIsTradeReceived(false);
       }
-  };
-
-  const handleTargetIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const val = e.target.value;
-      setTargetId(val);
   };
 
   return (
@@ -165,7 +168,9 @@ export const MultiplayerMenu: React.FC = () => {
                     <div className="absolute inset-0 bg-yellow-500/10 animate-pulse"></div>
                     <Sword size={48} className="mx-auto text-yellow-400 mb-4 animate-bounce" />
                     <h3 className="text-2xl font-pixel text-white mb-2">CHALLENGE!</h3>
-                    <p className="text-slate-300 mb-6"><span className="text-yellow-400 font-bold">{peerOpponent?.name || 'Unknown'}</span> wants to battle!</p>
+                    <p className="text-slate-300 mb-6">
+                        <span className="text-yellow-400 font-bold">{peerOpponent?.name || 'A Trainer'}</span> wants to battle!
+                    </p>
                     <div className="flex gap-4">
                         <button onClick={() => respondToChallenge(false)} className="flex-1 py-3 bg-slate-600 hover:bg-slate-500 rounded font-bold text-white border-b-4 border-slate-800">DECLINE</button>
                         <button onClick={() => respondToChallenge(true)} className="flex-1 py-3 bg-green-600 hover:bg-green-500 rounded font-bold text-white border-b-4 border-green-800">ACCEPT</button>
@@ -181,7 +186,9 @@ export const MultiplayerMenu: React.FC = () => {
                     <div className="absolute inset-0 bg-blue-500/10 animate-pulse"></div>
                     <ArrowRightLeft size={48} className="mx-auto text-blue-400 mb-4 animate-spin-slow" />
                     <h3 className="text-2xl font-pixel text-white mb-2">TRADE OFFER!</h3>
-                    <p className="text-slate-300 mb-6"><span className="text-blue-400 font-bold">{peerOpponent?.name || 'Unknown'}</span> wants to trade!</p>
+                    <p className="text-slate-300 mb-6">
+                        <span className="text-blue-400 font-bold">{peerOpponent?.name || 'A Trainer'}</span> wants to trade!
+                    </p>
                     <div className="flex gap-4">
                         <button onClick={() => respondToTrade(false)} className="flex-1 py-3 bg-slate-600 hover:bg-slate-500 rounded font-bold text-white border-b-4 border-slate-800">DECLINE</button>
                         <button onClick={() => respondToTrade(true)} className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded font-bold text-white border-b-4 border-blue-800">ACCEPT</button>
@@ -212,7 +219,7 @@ export const MultiplayerMenu: React.FC = () => {
                 <div className="flex-1 bg-slate-800 border-2 border-slate-700 rounded-lg p-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <div className="text-xs text-slate-400 font-bold uppercase">My ID</div>
-                        <code className="bg-black px-2 py-1 rounded text-yellow-400 font-mono text-sm">{myPeerId}</code>
+                        <code className="bg-black px-2 py-1 rounded text-yellow-400 font-mono text-sm select-all">{myPeerId}</code>
                     </div>
                     <button onClick={copyToClipboard} className="text-blue-400 hover:text-white"><Copy size={16}/></button>
                 </div>
@@ -256,7 +263,7 @@ export const MultiplayerMenu: React.FC = () => {
                         <>
                             <TrainerCard 
                                 name={peerOpponent.name}
-                                id={peerOpponent.id.substring(0, 5)} // Mock ID from peer
+                                id={peerOpponent.id.substring(0, 5)} 
                                 money={peerOpponent.money}
                                 badges={peerOpponent.badges}
                                 avatar={peerOpponent.avatar || 'https://play.pokemonshowdown.com/sprites/trainers/youngster.png'}
@@ -310,7 +317,7 @@ export const MultiplayerMenu: React.FC = () => {
                                     <input 
                                         type="text" 
                                         value={targetId}
-                                        onChange={handleTargetIdChange}
+                                        onChange={(e) => setTargetId(e.target.value)}
                                         placeholder="paste-id-here"
                                         className="w-full bg-transparent text-white focus:outline-none font-mono text-lg"
                                     />
