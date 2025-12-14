@@ -47,14 +47,14 @@ export const MultiplayerMenu: React.FC = () => {
          
          if (data.type === 'CHALLENGE_REQUEST') {
              audioService.playSfx('start');
-             setRequestingPeerId(senderId); // CAPTURE ID
+             setRequestingPeerId(senderId); 
              setIsChallengeReceived(true);
          } else if (data.type === 'CHALLENGE_RESPONSE') {
              setIsWaitingForResponse(false);
              multiplayer.handleIncomingMessage(data, senderId);
          } else if (data.type === 'TRADE_REQUEST') {
              audioService.playSfx('start');
-             setRequestingPeerId(senderId); // CAPTURE ID
+             setRequestingPeerId(senderId);
              setIsTradeReceived(true);
          } else if (data.type === 'TRADE_RESPONSE') {
              setIsWaitingForResponse(false);
@@ -121,11 +121,13 @@ export const MultiplayerMenu: React.FC = () => {
   };
 
   const respondToChallenge = (accepted: boolean) => {
+      console.log("Responding to challenge:", accepted);
       try {
           setIsChallengeReceived(false);
           const target = requestingPeerId || peerOpponent?.id;
           
           if (!target) {
+              console.error("No target ID found for response");
               showToast("Error: Unknown opponent ID", "error");
               return;
           }
@@ -144,6 +146,7 @@ export const MultiplayerMenu: React.FC = () => {
   };
 
   const respondToTrade = (accepted: boolean) => {
+      console.log("Responding to trade:", accepted);
       try {
           setIsTradeReceived(false);
           if (accepted) {
@@ -161,37 +164,37 @@ export const MultiplayerMenu: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center p-4 font-mono relative overflow-hidden">
-        {/* Modal: Incoming Challenge */}
+        {/* Modal: Incoming Challenge (FIXED POSITIONING) */}
         {isChallengeReceived && (
-            <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center p-4 animate-in fade-in zoom-in-95">
-                <div className="bg-slate-800 border-4 border-yellow-500 rounded-xl p-6 max-w-sm w-full text-center shadow-2xl relative overflow-hidden">
-                    <div className="absolute inset-0 bg-yellow-500/10 animate-pulse"></div>
+            <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 animate-in fade-in zoom-in-95 backdrop-blur-sm">
+                <div className="bg-slate-800 border-4 border-yellow-500 rounded-xl p-6 max-w-sm w-full text-center shadow-2xl relative overflow-hidden pointer-events-auto">
+                    <div className="absolute inset-0 bg-yellow-500/10 animate-pulse pointer-events-none"></div>
                     <Sword size={48} className="mx-auto text-yellow-400 mb-4 animate-bounce" />
                     <h3 className="text-2xl font-pixel text-white mb-2">CHALLENGE!</h3>
                     <p className="text-slate-300 mb-6">
                         <span className="text-yellow-400 font-bold">{peerOpponent?.name || 'A Trainer'}</span> wants to battle!
                     </p>
-                    <div className="flex gap-4">
-                        <button onClick={() => respondToChallenge(false)} className="flex-1 py-3 bg-slate-600 hover:bg-slate-500 rounded font-bold text-white border-b-4 border-slate-800">DECLINE</button>
-                        <button onClick={() => respondToChallenge(true)} className="flex-1 py-3 bg-green-600 hover:bg-green-500 rounded font-bold text-white border-b-4 border-green-800">ACCEPT</button>
+                    <div className="flex gap-4 relative z-10">
+                        <button onClick={() => respondToChallenge(false)} className="flex-1 py-3 bg-slate-600 hover:bg-slate-500 rounded font-bold text-white border-b-4 border-slate-800 active:border-b-0 active:translate-y-1 transition-all">DECLINE</button>
+                        <button onClick={() => respondToChallenge(true)} className="flex-1 py-3 bg-green-600 hover:bg-green-500 rounded font-bold text-white border-b-4 border-green-800 active:border-b-0 active:translate-y-1 transition-all">ACCEPT</button>
                     </div>
                 </div>
             </div>
         )}
 
-        {/* Modal: Incoming Trade */}
+        {/* Modal: Incoming Trade (FIXED POSITIONING) */}
         {isTradeReceived && (
-            <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center p-4 animate-in fade-in zoom-in-95">
-                <div className="bg-slate-800 border-4 border-blue-500 rounded-xl p-6 max-w-sm w-full text-center shadow-2xl relative overflow-hidden">
-                    <div className="absolute inset-0 bg-blue-500/10 animate-pulse"></div>
+            <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 animate-in fade-in zoom-in-95 backdrop-blur-sm">
+                <div className="bg-slate-800 border-4 border-blue-500 rounded-xl p-6 max-w-sm w-full text-center shadow-2xl relative overflow-hidden pointer-events-auto">
+                    <div className="absolute inset-0 bg-blue-500/10 animate-pulse pointer-events-none"></div>
                     <ArrowRightLeft size={48} className="mx-auto text-blue-400 mb-4 animate-spin-slow" />
                     <h3 className="text-2xl font-pixel text-white mb-2">TRADE OFFER!</h3>
                     <p className="text-slate-300 mb-6">
                         <span className="text-blue-400 font-bold">{peerOpponent?.name || 'A Trainer'}</span> wants to trade!
                     </p>
-                    <div className="flex gap-4">
-                        <button onClick={() => respondToTrade(false)} className="flex-1 py-3 bg-slate-600 hover:bg-slate-500 rounded font-bold text-white border-b-4 border-slate-800">DECLINE</button>
-                        <button onClick={() => respondToTrade(true)} className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded font-bold text-white border-b-4 border-blue-800">ACCEPT</button>
+                    <div className="flex gap-4 relative z-10">
+                        <button onClick={() => respondToTrade(false)} className="flex-1 py-3 bg-slate-600 hover:bg-slate-500 rounded font-bold text-white border-b-4 border-slate-800 active:border-b-0 active:translate-y-1 transition-all">DECLINE</button>
+                        <button onClick={() => respondToTrade(true)} className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded font-bold text-white border-b-4 border-blue-800 active:border-b-0 active:translate-y-1 transition-all">ACCEPT</button>
                     </div>
                 </div>
             </div>
