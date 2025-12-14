@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState } from '../../types';
 import { peerService, PeerStatus, PeerMessage } from '../../services/peerService';
-import { multiplayer } from '../../services/gameLogic/multiplayer'; // Import new service
+import { multiplayer } from '../../services/gameLogic/multiplayer';
 import { audioService } from '../../services/audioService';
 import { useGameStore } from '../../store/useGameStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
@@ -20,10 +20,10 @@ export const MultiplayerMenu: React.FC = () => {
   const [targetId, setTargetId] = useState('');
   
   // Use a ref to keep track of targetId inside the peerService callback
-  // without forcing the useEffect to re-run and reset the connection.
   const targetIdRef = useRef(''); 
 
   const [status, setStatus] = useState<PeerStatus>('CONNECTING');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [statusMsg, setStatusMsg] = useState('Initializing...');
   const [isChallengeReceived, setIsChallengeReceived] = useState(false);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
@@ -40,7 +40,6 @@ export const MultiplayerMenu: React.FC = () => {
       (id) => setMyPeerId(id),
       (s, m) => { setStatus(s); if (m) setStatusMsg(m); },
       (data: PeerMessage) => {
-         // Delegate to service, but handle menu-specific UI states here
          if (data.type === 'CHALLENGE_REQUEST') {
              audioService.playSfx('start');
              setIsChallengeReceived(true);
@@ -49,26 +48,29 @@ export const MultiplayerMenu: React.FC = () => {
              if (data.payload.accepted) {
                  showToast("Challenge Accepted!", "success");
                  if (data.payload.seed) {
-                     // Pass myPeerId directly as state might be stale in closure, 
-                     // but peerService.myId is private. We rely on the handshake logic.
-                     // Ideally we check payload.firstPlayerId against our current ID.
-                     multiplayer.startBattleLocal(data.payload.seed, data.payload.firstPlayerId === peerService['myId']);
+                     // Determine if I am player 1 based on payload
+                     // Note: We rely on the logic inside multiplayer.ts to actually start the battle state
+                     // Here we just ensure we pass the correct params if needed, or multiplayer.ts handles it via closures/state
+                     multiplayer.acceptChallenge(peerService['myId'] || myPeerId, peerOpponent?.id || 'unknown');
+                     // Actually, if we received RESPONSE, it means WE sent the REQUEST.
+                     // The payload from the opponent contains the seed.
+                     // We need to start local battle with that seed.
+                     const isFirst = data.payload.firstPlayerId === (peerService['myId'] || myPeerId);
+                     multiplayer.startBattleLocal(data.payload.seed, isFirst);
                  }
              } else {
                  showToast("Challenge Declined.", "error");
              }
          } else {
-             // General handler - Use the REF value to get the current text input without re-rendering
+             // General handler
              multiplayer.handleIncomingMessage(data, targetIdRef.current); 
          }
       }
     );
     
-    // Cleanup on unmount
     return () => {
         peerService.disconnect();
     };
-    // Empty dependency array ensures this runs ONLY ONCE when component mounts
   }, []);
 
   const sendSync = () => {
@@ -115,6 +117,8 @@ export const MultiplayerMenu: React.FC = () => {
       setIsChallengeReceived(false);
       if (accepted) {
           audioService.playSfx('correct');
+          // myPeerId might be empty string in initial render, but should be set by now.
+          // Fallback to what we have in state.
           multiplayer.acceptChallenge(myPeerId, peerOpponent?.id || 'unknown');
       } else {
           audioService.playSfx('run');
@@ -273,5 +277,6 @@ export const MultiplayerMenu: React.FC = () => {
                 </div>
             </div>
         </div>
-    );
+    </div>
+  );
 };
