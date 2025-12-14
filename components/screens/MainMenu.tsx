@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ArrowRight, Beaker, Layout, Zap, Trophy } from 'lucide-react';
+import { ArrowRight, Trophy } from 'lucide-react';
 import { logic } from '../../hooks/useGameLogic';
 import { StorageService } from '../../services/storageService';
 import { useGameStore } from '../../store/useGameStore';
@@ -9,7 +9,7 @@ import { audioService } from '../../services/audioService';
 
 export const MainMenu: React.FC = () => {
     const hasSave = StorageService.hasSave();
-    const { setGameState, setUiDebuggerOpen, setEventEditorOpen } = useGameStore.getState();
+    const { setGameState } = useGameStore.getState();
 
     const handleOpenAchievements = () => {
         audioService.playSfx('click');
@@ -22,30 +22,7 @@ export const MainMenu: React.FC = () => {
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-900 via-slate-900 to-black z-0"></div>
             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 z-0"></div>
             
-            {/* Debug Shortcuts */}
-            <div className="absolute top-4 right-4 z-50 flex gap-2">
-                <button 
-                    onClick={() => { audioService.playSfx('click'); setGameState(GameState.WEATHER_LAB); }}
-                    className="p-3 bg-slate-800/80 text-slate-400 hover:text-yellow-400 rounded-full border-2 border-slate-700 hover:border-yellow-400 transition-all hover:scale-110 shadow-lg"
-                    title="Open FX Studio"
-                >
-                    <Beaker size={24} />
-                </button>
-                <button 
-                    onClick={() => { audioService.playSfx('click'); setEventEditorOpen(true); }}
-                    className="p-3 bg-slate-800/80 text-slate-400 hover:text-purple-400 rounded-full border-2 border-slate-700 hover:border-purple-400 transition-all hover:scale-110 shadow-lg"
-                    title="Open Event Library"
-                >
-                    <Zap size={24} />
-                </button>
-                <button 
-                    onClick={() => { audioService.playSfx('click'); setUiDebuggerOpen(true); }}
-                    className="p-3 bg-slate-800/80 text-slate-400 hover:text-cyan-400 rounded-full border-2 border-slate-700 hover:border-cyan-400 transition-all hover:scale-110 shadow-lg"
-                    title="Open UI Gallery"
-                >
-                    <Layout size={24} />
-                </button>
-            </div>
+            {/* Debug Shortcuts Removed for Production */}
 
             {/* Legendary Decoration Layer */}
             <div className="absolute top-10 left-10 opacity-20 animate-float" style={{ animationDuration: '6s' }}>
@@ -97,7 +74,7 @@ export const MainMenu: React.FC = () => {
                     )}
                 </div>
             </div>
-            <div className="absolute bottom-4 text-slate-500 text-xs font-mono">MathMon v2.5 (P2P Enabled)</div>
+            <div className="absolute bottom-4 text-slate-500 text-xs font-mono">MathMon v2.6 (P2P Enabled)</div>
         </div>
     );
 }

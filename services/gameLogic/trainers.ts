@@ -173,8 +173,9 @@ export const trainers = {
             addDefeatedTrainer(currentTrainer.id);
             // Award Badge
             if (currentTrainer.badgeId) {
-                addBadge(currentTrainer.badgeId);
-                setTimeout(() => showToast(`Received the ${currentTrainer.badgeId.toUpperCase()} BADGE!`, "success", 4000), 1000);
+                const badgeId = currentTrainer.badgeId;
+                addBadge(badgeId);
+                setTimeout(() => showToast(`Received the ${badgeId.toUpperCase()} BADGE!`, "success", 4000), 1000);
             }
         }
 

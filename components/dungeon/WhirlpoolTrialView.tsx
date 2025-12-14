@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { GameEvent, EventChoice, EventResult } from '../../../types';
-import { audioService } from '../../../services/audioService';
-import { getGameActions } from '../../../services/gameContext';
-import { useGameStore } from '../../../store/useGameStore';
-import { randInt } from '../../../services/mathUtils';
+import { GameEvent, EventChoice, EventResult } from '../../types';
+import { audioService } from '../../services/audioService';
+import { getGameActions } from '../../services/gameContext';
+import { useGameStore } from '../../store/useGameStore';
+import { randInt } from '../../services/mathUtils';
 import { Waves, ArrowRight, Anchor, Compass } from 'lucide-react';
 
 interface WhirlpoolTrialViewProps {

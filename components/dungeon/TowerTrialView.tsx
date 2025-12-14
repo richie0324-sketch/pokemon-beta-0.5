@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { GameEvent, EventChoice, EventResult } from '../../../types';
-import { audioService } from '../../../services/audioService';
-import { getGameActions } from '../../../services/gameContext';
-import { useGameStore } from '../../../store/useGameStore';
+import { GameEvent, EventChoice, EventResult } from '../../types';
+import { audioService } from '../../services/audioService';
+import { getGameActions } from '../../services/gameContext';
+import { useGameStore } from '../../store/useGameStore';
 import { Flame, ArrowUp, Coins, Skull } from 'lucide-react';
 
 interface TowerTrialViewProps {

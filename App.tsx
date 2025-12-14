@@ -40,7 +40,7 @@ import { EventEditor } from './components/screens/EventEditor'; // New
 import { AchievementsScreen } from './components/screens/AchievementsScreen'; // New
 import { TrainerCardView } from './components/screens/TrainerCardView'; // NEW
 
-import { Play, Save, Wrench, LogOut, Volume2, VolumeX, Wifi, Trophy, CreditCard } from 'lucide-react';
+import { Play, Save, LogOut, Volume2, VolumeX, Wifi, Trophy, CreditCard } from 'lucide-react';
 
 const GameModals: React.FC = () => {
     const { gameState, isMuted, isDebugOpen, currentEvent } = useGameStore(useShallow(state => ({
@@ -52,7 +52,7 @@ const GameModals: React.FC = () => {
     
     const { saveGame, toggleMute, resolveEvent } = logic;
     
-    const { setGameState, setIsDebugOpen } = useGameStore.getState();
+    const { setGameState } = useGameStore.getState();
 
     const handleOpenMultiplayer = () => {
       audioService.playSfx('click');
@@ -101,8 +101,6 @@ const GameModals: React.FC = () => {
                         </button>
                     </div>
 
-                    <button onClick={() => { audioService.playSfx('click'); setIsDebugOpen(true); }} className="w-full py-3 bg-slate-700 text-red-400 font-bold rounded-lg flex items-center justify-center gap-2 border border-red-500/30 transition-transform active:scale-95 text-sm"><Wrench size={18} /> ADMIN TOOLS</button>
-                    
                     <button onClick={() => { audioService.playSfx('click'); setGameState(GameState.MENU_MAIN); }} className="w-full py-3 bg-red-600 text-white font-bold rounded-lg flex items-center justify-center gap-2 mt-2 transition-transform active:scale-95"><LogOut size={20} /> QUIT TITLE</button>
                 </div>
             </div>

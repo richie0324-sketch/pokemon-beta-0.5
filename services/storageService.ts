@@ -1,5 +1,5 @@
 
-import { SaveData, Pokemon, GameState, MathTopic, InventorySlot } from '../types';
+import { SaveData, Pokemon, GameState, MathTopic, InventorySlot, PokemonRarity } from '../types';
 import { getExpToNextLevel, RARITY_BASE_STATS } from '../constants';
 import { POKEDEX_REGISTRY } from '../data/pokedexData';
 
@@ -58,7 +58,8 @@ export const StorageService = {
                     baseAtk = entry.baseStats.atk;
                     baseDef = entry.baseStats.def;
                 } else {
-                    const range = RARITY_BASE_STATS[p.rarity] || RARITY_BASE_STATS['Common'];
+                    const rarity = (p.rarity || 'Common') as PokemonRarity;
+                    const range = RARITY_BASE_STATS[rarity] || RARITY_BASE_STATS['Common'];
                     baseHp = range.hp[0];
                     baseAtk = range.atk[0];
                     baseDef = range.def[0];
