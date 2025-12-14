@@ -14,7 +14,7 @@ import { calculateDamage } from '../services/battleMechanics';
 
 const MathBattle: React.FC = () => {
   const playerPokemon = usePlayerStore(state => state.playerPokemon);
-  const { enemyPokemon, battleMessage, questionSeed, isTrainerBattle, setBattleTimer, isMultiplayer, isMyTurn, battleModifiers } = useBattleStore(useShallow(state => ({
+  const { enemyPokemon, battleMessage, questionSeed, isTrainerBattle, setBattleTimer, isMultiplayer, isMyTurn, battleModifiers, setBattleMessage } = useBattleStore(useShallow(state => ({
       enemyPokemon: state.enemyPokemon,
       battleMessage: state.battleMessage,
       questionSeed: state.questionSeed,
@@ -22,7 +22,8 @@ const MathBattle: React.FC = () => {
       setBattleTimer: state.setBattleTimer,
       isMultiplayer: state.isMultiplayer,
       isMyTurn: state.isMyTurn,
-      battleModifiers: state.battleModifiers
+      battleModifiers: state.battleModifiers,
+      setBattleMessage: state.setBattleMessage
   })));
   const gameState = useGameStore(state => state.gameState);
   const selectedTopic = useGameStore(state => state.selectedTopic);
@@ -35,13 +36,8 @@ const MathBattle: React.FC = () => {
   
   const handleCorrect = (coeff: number) => {
       if (isMultiplayer) {
-          // P2P Logic:
-          // 1. Calculate raw damage using MY Attack Buffs vs ENEMY Base Defense
-          // (Enemy defense buffs are unknown to me, so they are applied on receiver side)
-          
-          // Use calculateDamage but force Def Mult to 1.0 (receiver applies their own)
+          // P2P Logic: Calculate raw damage
           const { damage } = calculateDamage(playerPokemon, enemyPokemon, coeff, true, battleModifiers.atk, 1.0);
-          
           multiplayer.sendAttack(damage);
       } else {
           if (isCatchPhase) {
@@ -77,8 +73,6 @@ const MathBattle: React.FC = () => {
       enemyPokemon,
       topic: selectedTopic,
       isCatchPhase,
-      // For MP, questionSeed is synced via BATTLE_INIT. 
-      // Ensure useMathEngine actually uses it to generate consistent difficulty/questions.
       questionSeed,
       onQuestionLoaded: () => {
           if (isTrainerBattle) {
@@ -104,10 +98,14 @@ const MathBattle: React.FC = () => {
 
   if (battleMessage) {
     return (
-      <div className="w-full mt-2 md:mt-4 retro-border bg-slate-800 text-white p-4 md:p-8 min-h-[150px] md:min-h-[200px] flex items-center justify-center">
+      <div 
+        onClick={() => setBattleMessage(null)} 
+        className="w-full mt-2 md:mt-4 retro-border bg-slate-800 text-white p-4 md:p-8 min-h-[150px] md:min-h-[200px] flex items-center justify-center cursor-pointer hover:bg-slate-700 transition-colors"
+      >
         <h2 className="text-xl md:text-3xl font-pixel leading-relaxed text-center animate-pulse">
           {battleMessage}
         </h2>
+        <div className="absolute bottom-2 text-[10px] text-slate-500 opacity-50 font-mono">tap to continue</div>
       </div>
     );
   }

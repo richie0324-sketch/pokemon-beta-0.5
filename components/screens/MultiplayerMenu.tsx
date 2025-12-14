@@ -36,6 +36,9 @@ export const MultiplayerMenu: React.FC = () => {
   };
 
   useEffect(() => {
+    // Only init if not already connected/ready to avoid ID reset on minor re-renders (though this component shouldn't re-render much)
+    // Actually, we want to ensure listeners are bound to THIS component instance's state for the modals.
+    
     peerService.init(
       (id) => setMyPeerId(id),
       (s, m) => { 
@@ -60,14 +63,16 @@ export const MultiplayerMenu: React.FC = () => {
              setIsWaitingForResponse(false);
              multiplayer.handleIncomingMessage(data, senderId);
          } else {
+             // Pass to global handler (Battle/Trade logic)
              multiplayer.handleIncomingMessage(data, senderId); 
          }
       }
     );
     
-    return () => {
-        peerService.disconnect();
-    };
+    // IMPORTANT: Do NOT disconnect on unmount. 
+    // We need the connection to persist when navigating to Battle/Trade screens.
+    // Disconnection is handled explicitly by the Back button.
+    
   }, []);
 
   const sendSync = () => {

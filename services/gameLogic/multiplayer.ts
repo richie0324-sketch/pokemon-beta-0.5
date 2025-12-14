@@ -102,6 +102,8 @@ export const multiplayer = {
                     setMpTurnNumber(mpTurnNumber + 1);
                     setIsMyTurn(true);
                     setBattleMessage("Your Turn!");
+                    // CRITICAL FIX: Clear message after delay so player can see question
+                    setTimeout(() => setBattleMessage(null), 1500);
                 }
                 break;
                 
@@ -172,26 +174,52 @@ export const multiplayer = {
             battleMessage: isMyTurn ? "Your Turn!" : `${peerOpponent.name}'s Turn!`
         });
         
+        // If starting first, clear message automatically
+        if (isMyTurn) {
+            setTimeout(() => useBattleStore.getState().setBattleMessage(null), 1500);
+        }
+        
         useGameStore.getState().setGameState(GameState.MULTIPLAYER_BATTLE);
         audioService.playBgm('battle');
     },
 
     sendAttack: (damage: number) => {
-        const { mpTurnNumber } = useBattleStore.getState();
+        const { mpTurnNumber, setBattleMessage, setAttackAnim } = useBattleStore.getState();
+        
+        // 1. Show local animation first
+        setBattleMessage("You attacked!");
+        setAttackAnim('player');
+        audioService.playSfx('attack');
+
+        // 2. Send Data
         peerService.send({ 
             type: 'BATTLE_MOVE', 
             payload: { type: 'ATTACK', damage, turnNumber: mpTurnNumber } 
         });
-        multiplayer.endTurn();
+
+        // 3. End Turn after delay
+        setTimeout(() => {
+            setAttackAnim('none');
+            setBattleMessage(null);
+            multiplayer.endTurn();
+        }, 1500);
     },
 
     sendMiss: () => {
-        const { mpTurnNumber } = useBattleStore.getState();
+        const { mpTurnNumber, setBattleMessage } = useBattleStore.getState();
+        
+        setBattleMessage("You missed!");
+        audioService.playSfx('incorrect');
+
         peerService.send({ 
             type: 'BATTLE_MOVE', 
             payload: { type: 'MISS', turnNumber: mpTurnNumber } 
         });
-        multiplayer.endTurn();
+        
+        setTimeout(() => {
+            setBattleMessage(null);
+            multiplayer.endTurn();
+        }, 1500);
     },
 
     endTurn: () => {
