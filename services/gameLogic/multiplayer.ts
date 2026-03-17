@@ -8,11 +8,31 @@ import { audioService } from '../audioService';
 import { showToast } from '../../store/useToastStore';
 import { POKEDEX_REGISTRY } from '../../data/pokedexData';
 
+// #4 FIX: Track all pending timeouts so they can be cancelled on disconnect/unmount
+const pendingTimers: number[] = [];
+const scheduleTimeout = (fn: () => void, delay: number): number => {
+    const id = window.setTimeout(() => {
+        const idx = pendingTimers.indexOf(id);
+        if (idx !== -1) pendingTimers.splice(idx, 1);
+        fn();
+    }, delay);
+    pendingTimers.push(id);
+    return id;
+};
+const clearAllPendingTimers = () => {
+    while (pendingTimers.length > 0) {
+        clearTimeout(pendingTimers.pop()!);
+    }
+};
+
+// #5 FIX: Trade execution lock to prevent double-execution race condition
+let tradeExecutionLock = false;
+
 export const multiplayer = {
     // 1. Handle Incoming Messages
     handleIncomingMessage: (msg: PeerMessage, senderId: string) => {
         const battleStore = useBattleStore.getState();
-        const { setPeerOpponent, setIsMyTurn, setBattleMessage, setAttackAnim, setDamageAnim, peerOpponent, isMultiplayer, setPeerTradeOffer, setIsPeerTradeConfirmed, isTradeConfirmed, tradeOffer, resetTradeState, mpTurnNumber, setMpTurnNumber, setEnemyPokemon } = battleStore;
+        const { setPeerOpponent, setIsMyTurn, setBattleMessage, setAttackAnim, setDamageAnim, peerOpponent, isMultiplayer, setPeerTradeOffer, setIsPeerTradeConfirmed, isTradeConfirmed, tradeOffer, resetTradeState, setMpTurnNumber, setEnemyPokemon } = battleStore;
         const { setGameState } = useGameStore.getState();
         const { playerPokemon, setPlayerPokemon } = usePlayerStore.getState();
 
@@ -56,35 +76,40 @@ export const multiplayer = {
 
             case 'BATTLE_MOVE':
                 if (!isMultiplayer) return;
-                
+
+                // #1 FIX: Read fresh turn number at point of check
+                const currentTurn = useBattleStore.getState().mpTurnNumber;
+
                 // RACE CONDITION CHECK: Ignore old turn moves
-                if (msg.payload.turnNumber !== mpTurnNumber) {
-                    console.warn(`Ignoring out-of-sync move. Local: ${mpTurnNumber}, Remote: ${msg.payload.turnNumber}`);
+                if (msg.payload.turnNumber !== currentTurn) {
+                    console.warn(`Ignoring out-of-sync move. Local: ${currentTurn}, Remote: ${msg.payload.turnNumber}`);
                     return;
                 }
-                
+
                 if (msg.payload.type === 'ATTACK') {
                     // Raw damage from opponent (based on their Atk vs our Base Def)
                     const rawDamage = msg.payload.damage || 0;
                     setBattleMessage(`${peerOpponent?.name} attacked!`);
-                    
+
                     setAttackAnim('enemy');
-                    setTimeout(() => setDamageAnim('player'), 200);
+                    scheduleTimeout(() => setDamageAnim('player'), 200);
                     audioService.playSfx('attack');
 
-                    setTimeout(() => {
-                        if (playerPokemon) {
+                    scheduleTimeout(() => {
+                        // #13 FIX: Re-read playerPokemon from fresh state inside timeout
+                        const freshPlayer = usePlayerStore.getState().playerPokemon;
+                        if (freshPlayer) {
                             // FAIRNESS: Apply LOCAL Defense Buffs to incoming damage
-                            const defMod = battleStore.battleModifiers.def || 1.0;
+                            const defMod = useBattleStore.getState().battleModifiers.def || 1.0;
                             const actualDamage = Math.max(1, Math.floor(rawDamage / defMod));
-                            
-                            const newHp = Math.max(0, playerPokemon.currHp - actualDamage);
-                            setPlayerPokemon({ ...playerPokemon, currHp: newHp });
+
+                            const newHp = Math.max(0, freshPlayer.currHp - actualDamage);
+                            setPlayerPokemon({ ...freshPlayer, currHp: newHp });
                             audioService.playSfx('damage');
-                            
+
                             if (newHp <= 0) {
                                 showToast("Your Pokemon fainted!", "error");
-                                setGameState(GameState.DEFEAT); 
+                                setGameState(GameState.DEFEAT);
                             }
                         }
                         setAttackAnim('none'); setDamageAnim('none');
@@ -98,25 +123,27 @@ export const multiplayer = {
 
             case 'TURN_END':
                 if (!isMultiplayer) return;
-                if (msg.payload.turnNumber === mpTurnNumber) {
-                    
-                    // HP Sync: Correct the enemy health bar based on opponent's truth
+                // #1 FIX: Use fresh turn number for the comparison
+                const localTurn = useBattleStore.getState().mpTurnNumber;
+                if (msg.payload.turnNumber === localTurn) {
+
+                    // #16 FIX: Clamp HP to valid range before applying
                     if (msg.payload.hp !== undefined && battleStore.enemyPokemon) {
-                        setEnemyPokemon({ 
-                            ...battleStore.enemyPokemon, 
-                            currHp: msg.payload.hp 
+                        const clampedHp = Math.max(0, Math.min(battleStore.enemyPokemon.maxHp, msg.payload.hp));
+                        setEnemyPokemon({
+                            ...battleStore.enemyPokemon,
+                            currHp: clampedHp
                         });
                     }
 
                     // Advance turn only if matching
-                    setMpTurnNumber(mpTurnNumber + 1);
+                    setMpTurnNumber(localTurn + 1);
                     setIsMyTurn(true);
                     setBattleMessage("Your Turn!");
-                    // CRITICAL FIX: Clear message after delay so player can see question
-                    setTimeout(() => setBattleMessage(null), 1500);
+                    scheduleTimeout(() => setBattleMessage(null), 1500);
                 }
                 break;
-                
+
             case 'TRADE_RESPONSE':
                 if (msg.payload.accepted) {
                     resetTradeState();
@@ -134,8 +161,9 @@ export const multiplayer = {
 
             case 'TRADE_CONFIRM':
                 setIsPeerTradeConfirmed(true);
-                if (isTradeConfirmed) {
-                    multiplayer.executeTrade(tradeOffer!, msg.payload.offer);
+                // #5 FIX: Only execute if not already locked (prevents double-execution)
+                if (isTradeConfirmed && tradeOffer && !tradeExecutionLock) {
+                    multiplayer.executeTrade(tradeOffer, msg.payload.offer);
                 }
                 break;
 
@@ -155,111 +183,117 @@ export const multiplayer = {
     acceptChallenge: (myId: string, opponentId: string) => {
         const firstPlayerId = myId > opponentId ? myId : opponentId;
         const seed = Math.random();
-        
+
         // Pick a shared difficulty to ensure fairness
         const diffs: Difficulty[] = ['Easy', 'Medium', 'Hard', 'Challenge'];
         const sharedDiff = diffs[Math.floor(Math.random() * diffs.length)];
 
-        peerService.send({ 
-            type: 'CHALLENGE_RESPONSE', 
-            payload: { accepted: true, seed, firstPlayerId, difficulty: sharedDiff } 
+        peerService.send({
+            type: 'CHALLENGE_RESPONSE',
+            payload: { accepted: true, seed, firstPlayerId, difficulty: sharedDiff }
         });
-        
+
         multiplayer.startBattleLocal(seed, firstPlayerId === myId, sharedDiff);
     },
 
     startBattleLocal: (seed: number, isMyTurn: boolean, difficulty?: Difficulty) => {
         const { peerOpponent, setSharedDifficulty } = useBattleStore.getState();
-        
+
         if (!peerOpponent || !peerOpponent.team || peerOpponent.team.length === 0) {
             showToast("Error: Opponent data missing!", "error");
             return;
         }
 
+        // #4 FIX: Clear any leftover timers from a previous battle
+        clearAllPendingTimers();
+        tradeExecutionLock = false;
+
         if (difficulty) setSharedDifficulty(difficulty);
 
         useBattleStore.setState({
             isMultiplayer: true,
-            isTrainerBattle: false, 
+            isTrainerBattle: false,
             enemyTeam: peerOpponent.team,
             enemyTeamIndex: 0,
             enemyPokemon: peerOpponent.team[0],
-            questionSeed: seed, // SHARED SEED ENSURES SAME QUESTION DIFFICULTY
+            questionSeed: seed,
             isMyTurn: isMyTurn,
-            mpTurnNumber: 1, // Reset turn counter
+            mpTurnNumber: 1,
             battleMessage: isMyTurn ? "Your Turn!" : `${peerOpponent.name}'s Turn!`
         });
-        
-        // If starting first, clear message automatically
+
         if (isMyTurn) {
-            setTimeout(() => useBattleStore.getState().setBattleMessage(null), 1500);
+            scheduleTimeout(() => useBattleStore.getState().setBattleMessage(null), 1500);
         }
-        
+
         useGameStore.getState().setGameState(GameState.MULTIPLAYER_BATTLE);
         audioService.playBgm('battle');
     },
 
     sendAttack: (damage: number) => {
-        const { mpTurnNumber, setBattleMessage, setAttackAnim, enemyPokemon, setEnemyPokemon } = useBattleStore.getState();
-        
+        // #13 FIX: Capture snapshot of current state at call time
+        const { mpTurnNumber, setBattleMessage, setAttackAnim } = useBattleStore.getState();
+        const enemySnapshot = useBattleStore.getState().enemyPokemon;
+
         // 1. Show local animation first
         setBattleMessage("You attacked!");
         setAttackAnim('player');
         audioService.playSfx('attack');
 
         // Immediate visual update for the attacker (estimation)
-        if (enemyPokemon) {
-            const newEnemyHp = Math.max(0, enemyPokemon.currHp - damage);
-            setEnemyPokemon({ ...enemyPokemon, currHp: newEnemyHp });
+        if (enemySnapshot) {
+            const newEnemyHp = Math.max(0, enemySnapshot.currHp - damage);
+            useBattleStore.getState().setEnemyPokemon({ ...enemySnapshot, currHp: newEnemyHp });
         }
 
         // 2. Send Data
-        peerService.send({ 
-            type: 'BATTLE_MOVE', 
-            payload: { type: 'ATTACK', damage, turnNumber: mpTurnNumber } 
+        peerService.send({
+            type: 'BATTLE_MOVE',
+            payload: { type: 'ATTACK', damage, turnNumber: mpTurnNumber }
         });
 
         // 3. End Turn after delay
-        setTimeout(() => {
-            setAttackAnim('none');
-            setBattleMessage(null);
+        scheduleTimeout(() => {
+            useBattleStore.getState().setAttackAnim('none');
+            useBattleStore.getState().setBattleMessage(null);
             multiplayer.endTurn();
         }, 1500);
     },
 
     sendMiss: () => {
         const { mpTurnNumber, setBattleMessage } = useBattleStore.getState();
-        
+
         setBattleMessage("You missed!");
         audioService.playSfx('incorrect');
 
-        peerService.send({ 
-            type: 'BATTLE_MOVE', 
-            payload: { type: 'MISS', turnNumber: mpTurnNumber } 
+        peerService.send({
+            type: 'BATTLE_MOVE',
+            payload: { type: 'MISS', turnNumber: mpTurnNumber }
         });
-        
-        setTimeout(() => {
-            setBattleMessage(null);
+
+        scheduleTimeout(() => {
+            useBattleStore.getState().setBattleMessage(null);
             multiplayer.endTurn();
         }, 1500);
     },
 
     endTurn: () => {
-        const { mpTurnNumber } = useBattleStore.getState();
+        // #1 FIX: Read fresh turn number at call time
+        const mpTurnNumber = useBattleStore.getState().mpTurnNumber;
         const { playerPokemon } = usePlayerStore.getState();
-        
+
         useBattleStore.getState().setIsMyTurn(false);
         useBattleStore.getState().setBattleMessage("Opponent's Turn...");
-        
+
         // Send current HP for sync
-        peerService.send({ 
-            type: 'TURN_END', 
-            payload: { 
+        peerService.send({
+            type: 'TURN_END',
+            payload: {
                 turnNumber: mpTurnNumber,
-                hp: playerPokemon?.currHp 
-            } 
+                hp: playerPokemon?.currHp
+            }
         });
-        // Increment local turn count for safety
+        // Increment local turn count
         useBattleStore.getState().setMpTurnNumber(mpTurnNumber + 1);
     },
 
@@ -287,8 +321,9 @@ export const multiplayer = {
         setIsTradeConfirmed(true);
         peerService.send({ type: 'TRADE_CONFIRM', payload: { offer: tradeOffer } });
 
-        if (isPeerTradeConfirmed && peerTradeOffer) {
-            multiplayer.executeTrade(tradeOffer!, peerTradeOffer);
+        // #5 FIX: Use lock to prevent double-execution
+        if (isPeerTradeConfirmed && peerTradeOffer && tradeOffer && !tradeExecutionLock) {
+            multiplayer.executeTrade(tradeOffer, peerTradeOffer);
         }
     },
 
@@ -296,13 +331,27 @@ export const multiplayer = {
         const { resetTradeState } = useBattleStore.getState();
         peerService.send({ type: 'TRADE_CANCEL', payload: {} });
         resetTradeState();
+        tradeExecutionLock = false;
         useGameStore.getState().setGameState(GameState.MENU_MULTIPLAYER);
     },
 
     executeTrade: (myMon: Pokemon, theirMon: Pokemon) => {
-        const { tradePokemon } = usePlayerStore.getState();
+        // #5 FIX: Acquire lock to prevent double-execution
+        if (tradeExecutionLock) return;
+        tradeExecutionLock = true;
+
+        const { tradePokemon, caughtPokemon } = usePlayerStore.getState();
         const { resetTradeState } = useBattleStore.getState();
         const { setGameState, queueEvolutions } = useGameStore.getState();
+
+        // #9 FIX: Validate that myMon still exists in the party before trading
+        const myMonInParty = caughtPokemon.find(p => p.id === myMon.id);
+        if (!myMonInParty) {
+            showToast("Trade failed: Pokemon no longer in party.", "error");
+            resetTradeState();
+            tradeExecutionLock = false;
+            return;
+        }
 
         tradePokemon(myMon.id, theirMon);
         audioService.playSfx('catch');
@@ -317,6 +366,13 @@ export const multiplayer = {
         }
 
         resetTradeState();
+        tradeExecutionLock = false;
         setGameState(GameState.MENU_MULTIPLAYER);
+    },
+
+    // Cleanup: call when leaving multiplayer entirely
+    cleanup: () => {
+        clearAllPendingTimers();
+        tradeExecutionLock = false;
     }
 };

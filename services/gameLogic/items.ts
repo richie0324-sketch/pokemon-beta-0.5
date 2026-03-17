@@ -49,7 +49,10 @@ export const items = {
             
             setIsMasterBallActive(true);
             audioService.playSfx('throw');
-            
+
+            // #14 FIX: Capture enemyPokemon snapshot now before any async delay
+            const enemySnapshot = enemyPokemon;
+
             setTimeout(() => {
                 setCatchAnim('success');
                 audioService.playSfx('catch');
@@ -58,7 +61,9 @@ export const items = {
                     useGameStore.getState().updateQuestProgress(1);
 
                     const playerStore = usePlayerStore.getState();
-                    if (!enemyPokemon) return;
+                    if (!enemySnapshot) return;
+                    // Use snapshot to avoid stale closure on enemyPokemon
+                    const enemyPokemon = enemySnapshot;
                     
                     // Calculate and grant EXP
                     const expGained = calculateExpGain(playerPokemon!, enemyPokemon);

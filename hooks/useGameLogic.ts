@@ -36,7 +36,8 @@ export const logic = {
 // --- SUBSCRIPTION HOOK ---
 // Kept in this file as it needs React lifecycle
 const useStoreSubscriber = () => {
-    const returnStateRef = useRef<GameState>(GameState.MENU_MAIN);
+    // #17 FIX: Use a stack so nested/chained evolutions always return to the correct prior state
+    const returnStateStack = useRef<GameState[]>([]);
     const timerRef = useRef<number | null>(null);
 
     // Battle Timer Effect
@@ -126,12 +127,13 @@ const useStoreSubscriber = () => {
         const unsubscribe = useGameStore.subscribe((state, prevState) => {
             if (state.evolutionQueue.length > 0 && state.evolutionQueue.length !== prevState.evolutionQueue.length && state.gameState !== GameState.EVOLUTION) {
                 const { gameState } = useGameStore.getState();
-                
-                // Only capture state if we are NOT already evolving/paused to avoid getting stuck
+
+                // #17 FIX: Push onto the stack so each new evolution queued from a different
+                // state (e.g. Rare Candy while in backpack mid-battle) returns to the right place
                 if (gameState !== GameState.EVOLUTION && gameState !== GameState.PAUSED && gameState !== GameState.TRAINER_INTRO) {
-                    returnStateRef.current = gameState;
+                    returnStateStack.current.push(gameState);
                 }
-                
+
                 processNextEvolution();
             }
         });
@@ -151,9 +153,10 @@ const useStoreSubscriber = () => {
             // Process the next one immediately
             processNextEvolution();
         } else {
-            // All done, return to previous state
+            // #17 FIX: Pop the return state from the stack; fall back to MENU_MAIN if empty
+            const returnState = returnStateStack.current.pop() ?? GameState.MENU_MAIN;
             setEvolutionData(null);
-            setGameState(returnStateRef.current);
+            setGameState(returnState);
         }
     };
 

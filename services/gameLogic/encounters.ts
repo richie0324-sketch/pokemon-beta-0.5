@@ -104,6 +104,7 @@ const maybeTriggerRandomEvent = (currentStreak: number): boolean => {
 
     // 3. Weighted Random Selection
     const totalWeight = candidates.reduce((sum, e) => sum + e.chance, 0);
+    if (totalWeight === 0) return false;
     let randomValue = Math.random() * totalWeight;
     let selectedEvent: GameEvent | null = null;
 
@@ -148,6 +149,7 @@ export const encounters = {
                 ? [200, 198, 228, 167, 163, 218] // Misdreavus, Murkrow, Houndour, Spinarak, Hoothoot, Slugma
                 : [170, 194, 211, 222, 223, 226]; // Chinchou, Wooper, Qwilfish, Corsola, Remoraid, Mantine
 
+            if (poolIds.length === 0) return;
             const speciesId = poolIds[Math.floor(Math.random() * poolIds.length)];
             const entry = POKEDEX_REGISTRY.find(p => p.speciesId === speciesId);
             
