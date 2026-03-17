@@ -95,7 +95,8 @@ class PeerService {
                 
                 // Check if peer is dead (no heartbeat for 10s)
                 if (Date.now() - this.lastHeartbeat > 10000) {
-                    console.warn("Peer heartbeat lost");
+                    console.warn("Peer heartbeat lost — closing connection");
+                    this.onStatusChange?.('ERROR', 'Connection lost: peer stopped responding');
                     this.conn.close();
                 }
             }

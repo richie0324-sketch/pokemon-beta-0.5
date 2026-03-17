@@ -30,7 +30,8 @@ export const MultiplayerMenu: React.FC = () => {
 
   const onBack = () => {
       audioService.playSfx('click');
-      peerService.disconnect(); 
+      multiplayer.cleanup();
+      peerService.disconnect();
       setPeerOpponent(null);
       setGameState(prevState || GameState.MENU_MAIN);
   };
@@ -75,16 +76,19 @@ export const MultiplayerMenu: React.FC = () => {
     
   }, []);
 
+  // #3 FIX: Read fresh state from stores instead of using potentially-stale closure values
   const sendSync = () => {
       if (peerService.isConnected()) {
+          const { playerName: freshName, playerAvatar: freshAvatar } = useGameStore.getState();
+          const { caughtPokemon: freshTeam, money: freshMoney, badges: freshBadges } = usePlayerStore.getState();
           peerService.send({
               type: 'SYNC_TEAM',
-              payload: { 
-                  name: playerName, 
-                  team: caughtPokemon, 
-                  avatar: playerAvatar,
-                  money: money,
-                  badges: badges
+              payload: {
+                  name: freshName,
+                  team: freshTeam,
+                  avatar: freshAvatar,
+                  money: freshMoney,
+                  badges: freshBadges
               }
           });
       }

@@ -202,14 +202,17 @@ export const useBattleStore = create<BattleStoreState>((set, get) => ({
     },
 
     endBattle: () => {
-        set({ 
-            isTrainerBattle: false, 
+        set({
+            isTrainerBattle: false,
             isMultiplayer: false,
-            currentTrainer: null, 
-            enemyTeam: [], 
+            currentTrainer: null,
+            enemyTeam: [],
             battleTimer: null,
             mpTurnNumber: 0,
-            sharedDifficulty: null
+            sharedDifficulty: null,
+            battleModifiers: { atk: 1.0, def: 1.0 },
+            preppedBall: null,
+            isMasterBallActive: false,
         });
     },
     

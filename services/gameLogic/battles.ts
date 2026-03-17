@@ -233,7 +233,8 @@ export const battles = {
             return;
         }
         
-        const catchRate = CATCH_RATES[enemyPokemon.rarity] * (preppedBall?.multiplier || 1) * (1 - (enemyPokemon.currHp / enemyPokemon.maxHp) * 0.5);
+        const safeMaxHp = Math.max(1, enemyPokemon.maxHp);
+        const catchRate = CATCH_RATES[enemyPokemon.rarity] * (preppedBall?.multiplier || 1) * (1 - (enemyPokemon.currHp / safeMaxHp) * 0.5);
         const willCatch = Math.random() < catchRate;
 
         setCatchAnim('throwing');
